@@ -1,5 +1,5 @@
-# WisecondorX-metacentrum
-In this repository, you can find scripts for basecalling, alignment and wisecondorX analysis of nanopore data (PromethiON)
+# Analysis_NIPT_metacentrum
+In this repository, you can find scripts for basecalling, alignment and wisecondorX analysis of nanopore data (PromethiON). This repository include also scripts for statistic analysis. Everything is written in Python.
 
 ### Basecalling - dorado
 You need to upload your data to metacentrum. Input data are in HAC quality (pod5 files) from nanopore sequencing.
@@ -65,3 +65,13 @@ If your data stays in a SCRATCH folder, you need to copy them manually before yo
     Důležité upozornění: MetaCentrum má nastavené procesy tak, že po skončení nebo pádu úlohy většinou automaticky spouští čistící epilog skripty. Pokud se na uzel přes SSH už nedostaneš, nebo tam složka scratche není, data byla nenávratně smazána a celou úlohu je nutné spustit znovu.
 
 
+### ALIGNMENT
+Pokud vzorek při alignmentu spadne (např. vzorek č. 5 byl moc velký a 64 GB RAM mu nestačilo):
+
+    Úloha se okamžitě ukončí a MetaCentrum ti pošle e-mail s upozorněním na selhání (protože máš nastaveno #PBS -m ae).
+    Ostatní vzorky (0-4 a 6-23) poběží normálně dál a dokončí se.
+
+Co musíš udělat ty: 
+
+    Musíš ručně otevřít chybový log, zjistit, že došla paměť, otevřít PBS skript, přepsat #PBS -l mem=64gb na 128gb a ručně spustit jen tento jeden vzorek.
+    (v PBS nemusíš pouštět znovu celé pole 0-23, ale můžeš poslat jen ten jeden chybějící vzorek pomocí qsub -J 5-5 alignment.sh.)
