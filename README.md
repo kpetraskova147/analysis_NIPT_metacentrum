@@ -14,6 +14,15 @@ Create a folder named "basecalling" and in it:
                                           - models - dna_r10.4.1_e8.2_400bps_sup@v5.2.0/
                                                    - methylation - dna_r10.4.1_e8.2_400bps_sup@v5.2.0_5mC_5hmC/
 
+Dorado-1.0.0-linux-x64 dispozici ke stažení na:
+Nastavení: upravím cesty v 1. NASTAVENÍ UŽIVATELE (UPRAV POUZE TUTO ČÁST).
+Ve skriptu je nastavení zaslání mailu při ukončení nebo selhání úlohy - nastav svou mailovou adresu v PBS hlavičce (řádek #PBS -M) 
+pozn.: pokud chci sledovat metylaci, musím odstranit # před --modified-bases-models a použít model s metylací - (dna_r10.4.1_e8.2_400bps_sup@v5.0.0_5mC_5hmC@v1) v 1. NASTAVENÍ UŽIVATELE (UPRAV POUZE TUTO ČÁST).
+Spuštění: 
+        
+        qsub dorado_basecall.sh
+
+
 If your data stays in a SCRATCH folder, you need to copy them manually before your time runs out.
 
     Pokud úloha selže v posledním kroku a v logu se objeví hláška, že "data zůstala ve scratchi pro kontrolu", znamená to, že samotný výpočet (basecalling) proběhl úspěšně, ale selhal finální přesun na /storage. Data lze zachránit manuálně, pokud je systémový čistící skript ještě nesmazal.
@@ -55,6 +64,4 @@ If your data stays in a SCRATCH folder, you need to copy them manually before yo
         
     Důležité upozornění: MetaCentrum má nastavené procesy tak, že po skončení nebo pádu úlohy většinou automaticky spouští čistící epilog skripty. Pokud se na uzel přes SSH už nedostaneš, nebo tam složka scratche není, data byla nenávratně smazána a celou úlohu je nutné spustit znovu.
 
-nčení nebo selhání úlohy - nastav svou mailovou adresu v PBS hlavičce (řádek #PBS -M) 
 
-# Spuštění: qsub dorado_basecall.sh
