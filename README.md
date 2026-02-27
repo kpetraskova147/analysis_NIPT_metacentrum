@@ -79,6 +79,24 @@ Prostředí: environment.yml
 
 Reference: Soubor reference.npz
 
+#### Krok 3.0: WisecondorX (Tvorba reference)
+Cíl: Vytvoření "zlatého standardu" (reference) ze zdravých vzorků.
+        - referenci mohu vytvořit pomocí skriptu newRef.sh
+        - vytvoří mi referenci ze souborů v ALL_NPZ složce (ve složce wisecondorX)
+        - uloží se do složky references (ve wisecondorX) jako reference_{velikost}kb_datum.npz
+        - pro použití je potřeba ji přesunout do wisecondorX složky a přejmenovat na reference.npz (můžu si napsat někam poznámku o původním jménu)
+        - můžu vytvořit pouze jednu referenci a používat ji dokola, nebo můžu reference aktualizovat
+
+Kde otevřít terminál: Složka wisecondorX
+
+Vstup: Všechny dostupné .npz soubory zdravých vzorků uložené ve složce ALL_NPZ.
+
+##### Co spouštím:
+
+        qsub builder_reference.sh
+
+Výstup: Soubory reference_1000kb_[DATUM].npz jsou uložené ve složce references.
+
 #### Krok 3.1: Vygenerování seznamu vzorků
 Kde otevřít terminál: Ve složce alignment_results (kde leží hotové BAMy).
 
