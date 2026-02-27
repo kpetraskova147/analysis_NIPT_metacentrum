@@ -1,22 +1,3 @@
-# Vytvoř si složku alignment a v ní:
-# 1. SKRIPT: 'alignment_minimap2.sh'
-# 2. REFERENČNÍ GENOM: např. hg38.fa (stažený z Ensemblu nebo UCSC, musí být indexovaný minimap2 - pokud není, minimap2 si ho vytvoří při prvním spuštění)
-
-# Nastavení: upravím cesty v 1. NASTAVENÍ UŽIVATELE (UPRAV POUZE TUTO ČÁST).
-#          : upravím PBS -J pro počet vzorků (0-23 = 24 vzorků), které chci zpracovat a mailovou adresu pro notifikace.
-
-# Ve skriptu je nastavení zaslání mailu při ukončení nebo selhání úlohy - nastav svou mailovou adresu v PBS hlavičce (řádek #PBS -M v PBS hlavička)
-
-# Spuštění: qsub -v RUN_NUMBER="run1" alignment_minimap2.sh
-
-# MULTIQC
-# Po doběhnutí analýzu mohu spustit MultiQC pro přehled všech vzorků: multiqc . -o multiqc_report (spustím v OUTPUT_DIR, kde jsou všechny výsledky z jednotlivých vzorků)
-# MultiQC se podívá do všech podsložek, najde tam mosdepth summary a nanostat a vytvoří přehledný report s grafy pro všechny vzorky v jednom souboru (multiqc_report.html).
-# Spuštění MultiQC:
-# 1. Přejdu do složky s výsledky (OUTPUT_DIR) - cd /storage/praha1/home/TVUJ_LOGIN/alignment/alignment_output_run1 
-# 2. Načtu program: module add multiqc
-# 3. Spustím: multiqc .
-
 #!/bin/bash
 # =============================================================================
 # PBS HLAVIČKA
@@ -34,6 +15,29 @@
 # -j oe: Sloučení standardního výstupu (o) a chyb (e)do jednoho souboru pro snadnější kontrolu.
 # -m ae: Odesílání emailů při ukončení (a) nebo selhání (e) úlohy. Ujisti se, že máš správně nastavenou emailovou adresu v PBS konfiguraci, aby ti dorazily notifikace.
 # -J 0-23: Spuštění pole úloh pro zpracování 24 vzorků (indexy 0-23). Uprav podle počtu svých vzorků.
+
+# =============================================================================
+# INSTRUKCE
+# =============================================================================
+        # Vytvoř si složku alignment a v ní:
+        # 1. SKRIPT: 'alignment_minimap2.sh'
+        # 2. REFERENČNÍ GENOM: např. hg38.fa (stažený z Ensemblu nebo UCSC, musí být indexovaný minimap2 - pokud není, minimap2 si ho vytvoří při prvním spuštění)
+
+        # Nastavení: upravím cesty v 1. NASTAVENÍ UŽIVATELE (UPRAV POUZE TUTO ČÁST).
+        #          : upravím PBS -J pro počet vzorků (0-23 = 24 vzorků), které chci zpracovat a mailovou adresu pro notifikace.
+
+        # Ve skriptu je nastavení zaslání mailu při ukončení nebo selhání úlohy - nastav svou mailovou adresu v PBS hlavičce (řádek #PBS -M v PBS hlavička)
+
+        # Spuštění: qsub -v RUN_NUMBER="run1" alignment_minimap2.sh
+
+        # MULTIQC
+        # Po doběhnutí analýzu mohu spustit MultiQC pro přehled všech vzorků: multiqc . -o multiqc_report (spustím v OUTPUT_DIR, kde jsou všechny výsledky z jednotlivých vzorků)
+        # MultiQC se podívá do všech podsložek, najde tam mosdepth summary a nanostat a vytvoří přehledný report s grafy pro všechny vzorky v jednom souboru (multiqc_report.html).
+        # Spuštění MultiQC:
+        # 1. Přejdu do složky s výsledky (OUTPUT_DIR) - cd /storage/praha1/home/TVUJ_LOGIN/alignment/alignment_output_run1 
+        # 2. Načtu program: module add multiqc
+        # 3. Spustím: multiqc .
+
 
 # =============================================================================
 # 1. NASTAVENÍ UŽIVATELE (UPRAV TUTO ČÁST)

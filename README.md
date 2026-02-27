@@ -1,28 +1,119 @@
 # Analysis_NIPT_metacentrum
 In this repository, you can find scripts for basecalling, alignment and wisecondorX analysis of nanopore data (PromethiON). This repository also includes scripts for statistic analysis. Everything is written in Python.
 
-### Basecalling - dorado
-You need to upload your data to metacentrum. Input data are in HAC quality (pod5 files) from nanopore sequencing.
-##### Input data - how this script works:
-Create a folder named "basecalling" and in it:
+## INSTRUCTIONS
 
-    1. Script: dorado_basecall.sh
-    2. DATA: folder "pod5_pass" and folder with your data in it: run1_pass.pod5, run2_pass.pod5
-    3. OUTPUT FOLDER: basecall_results
-    4. FOLDER FOR LOGS FILES: run_logs
-    5. FOLDER WITH dorado-1.0.0-linux-x64 - bin - dorado
-                                          - models - dna_r10.4.1_e8.2_400bps_sup@v5.2.0/
-                                                   - methylation - dna_r10.4.1_e8.2_400bps_sup@v5.2.0_5mC_5hmC/
+IMPORTANT: PBS -J settings. 
 
-Dorado-1.0.0-linux-x64 dispozici ke stažení na:
-Nastavení: upravím cesty v 1. NASTAVENÍ UŽIVATELE (UPRAV POUZE TUTO ČÁST).
-Ve skriptu je nastavení zaslání mailu při ukončení nebo selhání úlohy - nastav svou mailovou adresu v PBS hlavičce (řádek #PBS -M) 
-pozn.: pokud chci sledovat metylaci, musím odstranit # před --modified-bases-models a použít model s metylací - (dna_r10.4.1_e8.2_400bps_sup@v5.0.0_5mC_5hmC@v1) v 1. NASTAVENÍ UŽIVATELE (UPRAV POUZE TUTO ČÁST).
-Spuštění: 
-        
-        qsub dorado_basecall.sh
+        Minimap2 is counting files and folders from zero
+                - PBS -J 0-23 for 24 samples
+        WisecondorX is counting files and folders from 1
+                - PBS -J 1-24 for 24 samples
+
+## NANOPORE NIPT PIPELINE – ULTIMÁTNÍ CHEAT SHEET
+### FÁZE 1: Dorado (Basecalling)
+Cíl: Převod surových signálů .pod5 na čtení .fastq.
+
+#### Co musíš mít ve složce basecalling:
+Skript: dorado_basecall.sh
+
+Data: Složka s pod5 daty (např. pod5_pass/run1_pass.pod5)
+
+Výstupní složka: basecall_results (vytvoří se, nebo ji připrav)
+
+Logy: Složka run_logs
+
+Software: Složka dorado-1.0.0-linux-x64 obsahující složky bin a models
+    bin - dorado
+    models - dna_r10.4.1_e8.2_400bps_sup@v5.2.0/
+           - methylation - dna_r10.4.1_e8.2_400bps_sup@v5.2.0_5mC_5hmC/
+
+#### Nastavení a Spuštění:
+Ve skriptu: Uprav cesty v sekci 1, zkontroluj názvy modelů a nezapomeň nastavit svůj e-mail v hlavičce (#PBS -M). Pokud chceš metylaci, odstraň # před --modified-bases-models a použij příslušný model.
+
+Kde otevřít terminál: Ve složce basecalling
+
+##### Spuštění:
+
+        qsub -v RUN_NUMBER="run1" dorado_basecall.sh
+
+### FÁZE 2: Minimap2 (Alignment) + MultiQC
+Cíl: Zarovnání .fastq na referenci a tvorba .bam / .bai souborů.
+
+#### Co musíš mít ve složce alignment:
+Skript: alignment_minimap2.sh
+
+Reference: Referenční genom (např. hg38.fa).
+        (stažený z Ensemblu nebo UCSC, musí být indexovaný minimap2 - pokud není, minimap2 si ho vytvoří při prvním spuštění)
+
+#### Nastavení a Spuštění:
+Ve skriptu: Uprav cesty, doplň e-mail a pozor na číslování! Nastav #PBS -J 0-X (kde X je počet vzorků mínus 1, např. 0-23 pro 24 vzorků). Moduly nech zafixované (např. minimap2/2.26).
+
+Kde otevřít terminál: Ve složce alignment
+
+##### Spuštění:
+
+        qsub -v RUN_NUMBER="run1" alignment_minimap2.sh
+
+#### Kontrola kvality (MultiQC):
+Po doběhnutí analýzy přejdi do výstupní složky (např. alignment/alignment_output_run1), kde se nachází výsledky všech vzorků, a vygeneruj si souhrnný report:
+
+        module add multiqc
+        multiqc .
+
+MultiQC se podívá do všech podsložek, najde tam mosdepth summary a nanostat a vytvoří přehledný report s grafy pro všechny vzorky v jednom souboru (multiqc_report.html).
+
+### FÁZE 3: WisecondorX (NIPT Analýza)
+Cíl: Detekce chromozomálních aberací a NIPT reporty.
+
+###### IMPORTANT: Před prvním spuštěním analýzu musím instalovat conda environment: 
+
+        conda env create -f environment.yml
+
+### Co musíš mít ve složce wisecondorX (Předletová příprava):
+Skript: skript_wisecondorX.sh
+
+Skript: uvod_kontrola.py
+
+Prostředí: environment.yml
+
+Reference: Soubor reference.npz
+
+#### Krok 3.1: Vygenerování seznamu vzorků
+Kde otevřít terminál: Ve složce alignment_results (kde leží hotové BAMy).
+
+##### Co spouštím:
+
+        find "$PWD"/alignment_output_*/ -name "barcode*.bam" | awk -F/ '{
+            run_dir=$(NF-1); 
+            run_num=run_dir; gsub("alignment_output_", "", run_num); 
+            bam_file=$NF; 
+            barcode=bam_file; gsub(".bam", "", barcode); 
+            print barcode"-run-"run_num " " $0 " " run_num
+        }' > /storage/praha1/home/TVUJ_LOGIN/wisecondorX/samples_seznam_wisecondorx.txt
+
+#### Krok 3.2: Kontrola a vytvoření logu
+Kde otevřít terminál: Nyní se přesuň do složky wisecondorX
+
+##### Co spouštím:
+
+        python3 uvod_kontrola.py
+
+#### Krok 3.3: Spuštění výpočtu
+Ve skriptu: Pokud Python nevyhodil chyby, otevři skript_wisecondorX.sh. Zkontroluj cesty, uprav e-mail a nastav #PBS -J 1-X (zde se naopak začíná od 1, přesně podle počtu, který ti nahlásil Python).
+
+Kde otevřít terminál: Stále ve složce wisecondorX
+
+##### Spuštění:
+
+        qsub skript_wisecondorX.sh
 
 
+
+
+## ERRORS
+
+### BASECALLING
 If your data stays in a SCRATCH folder, you need to copy them manually before your time runs out.
 
     Pokud úloha selže v posledním kroku a v logu se objeví hláška, že "data zůstala ve scratchi pro kontrolu", znamená to, že samotný výpočet (basecalling) proběhl úspěšně, ale selhal finální přesun na /storage. Data lze zachránit manuálně, pokud je systémový čistící skript ještě nesmazal.
