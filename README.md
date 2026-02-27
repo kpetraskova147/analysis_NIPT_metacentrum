@@ -1,5 +1,5 @@
 # Analysis_NIPT_metacentrum
-In this repository, you can find scripts for basecalling, alignment and wisecondorX analysis of nanopore data (PromethiON). This repository include also scripts for statistic analysis. Everything is written in Python.
+In this repository, you can find scripts for basecalling, alignment and wisecondorX analysis of nanopore data (PromethiON). This repository also includes scripts for statistic analysis. Everything is written in Python.
 
 ### Basecalling - dorado
 You need to upload your data to metacentrum. Input data are in HAC quality (pod5 files) from nanopore sequencing.
