@@ -35,6 +35,13 @@ cd $PBS_O_WORKDIR
 mkdir -p systemove_logy
 
 module load conda
+
+# Kontrola, zda prostředí existuje. Pokud ne, musím ho instalovat z environment.yml
+if ! conda info --envs | grep -q "wisecondorX_env"; then
+    echo "--- Prostředí wisecondorX_env nebylo nalezeno. Je třeba ho instalovat. ---"
+    exit 1
+fi
+
 conda activate wisecondorX_env
 
 # =============================================================================
