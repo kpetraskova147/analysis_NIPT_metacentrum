@@ -18,13 +18,12 @@
 # =============================================================================
 # INSTRUKCE
 # =============================================================================
-        # Vytvoř složku alignment a v ní složku basecalling_results (pro výsledky z Dorada)
+        # Vytvoř složku alignment a v ní složku basecall_results (pro výsledky z Dorada)
         # Vytvoř si složku basecalling a v ní:
         # 1. SKRIPT: 'dorado_basecall.sh'
         # 2. DATA: složku pod5_pass s mými .pod5 soubory - ve složkách: run1_pod5_pass, run2_pod5_pass, ...
-        # 3. VÝSTUPNÍ SLOŽKA: basecall_results
-        # 4. SLOŽKA PRO CENTRAL LOGOVACÍ SOUBOR: run_logs
-        # 5. SLOŽKA dorado-1.0.0-linux-x64 - (SOFTWARE) složka bin - soubor dorado
+        # 3. SLOŽKA PRO CENTRAL LOGOVACÍ SOUBOR: run_logs
+        # 4. SLOŽKA dorado-1.0.0-linux-x64 - (SOFTWARE) složka bin - soubor dorado
         #                                  - (MODELY) složka models - dna_r10.4.1_e8.2_400bps_sup@v5.2.0/    - lidský genom
         #                                                          (- dna_r10.4.1_e8.2_400bps_sup@v5.2.0_5mC_5hmC/   - methylace)
         # pozn.: pokud chci sledovat metylaci, musím odstranit # před --modified-bases-models a použít model s metylací 
@@ -136,7 +135,7 @@ $METYLACE \
 # 4. DEMULTIPLEXING (To je ten klíčový krok!)
 # =============================================================================
 
-echo "[3/4] Rozděluji data podle barcodů (Demultiplexing) do složky ${RUN_NUMBER}_demultiplex_output..."
+echo "[3/4] Rozděluji data podle barcodů (Demultiplexing) do složky ${RUN_NUMBER}_demultiplex_output..." | tee -a basecall_info.txt
 
 mkdir ${RUN_NUMBER}_demultiplex_output # vytvoříme unikátní složku pro výstup z demultiplexingu, aby se nám data z různých úloh nemíchala}
 
@@ -196,4 +195,4 @@ else
     exit 1
 fi      # fi - konec kontroly kopírování (podmínky if, převrácené if)
 
-echo "Hotovo: $RUN_NUMBER dne: $(date)" | tee -a basecall_info.txt
+echo "Hotovo: $RUN_NUMBER dne: $(date)" >> "$FINAL_OUTPUT_DIR/basecall_info.txt"

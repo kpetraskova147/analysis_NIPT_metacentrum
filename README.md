@@ -93,7 +93,7 @@ Vstup: Všechny dostupné .npz soubory zdravých vzorků uložené ve složce AL
 
 ##### Co spouštím:
 
-        qsub builder_reference.sh
+        qsub newRef.sh
 
 Výstup: Soubory reference_1000kb_[DATUM].npz jsou uložené ve složce references.
 
