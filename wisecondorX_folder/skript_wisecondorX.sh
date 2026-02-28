@@ -35,6 +35,13 @@ cd $PBS_O_WORKDIR
 mkdir -p systemove_logy
 
 module load conda
+
+# Kontrola, zda prostředí existuje. Pokud ne, musím ho instalovat z environment.yml
+if ! conda info --envs | grep -q "wisecondorX_env"; then
+    echo "--- Prostředí wisecondorX_env nebylo nalezeno. Je třeba ho instalovat. ---"
+    exit 1
+fi
+
 conda activate wisecondorX_env
 
 # =============================================================================
@@ -58,10 +65,6 @@ fi
 # Základní adresář, kde běží má analýza a mám zde uložena data
 # ÚPRAVA: TVUJ_LOGIN (můj osobní login na metacentru), praha1 (cluster, kde běží analýza a mám data)
 BASE_DIR="/storage/praha1/home/TVUJ_LOGIN"
-
-# Umístění vstupních dat (.bam soubory - Minimap2)
-INPUT_BAM_BAI_DIR="$BASE_DIR/alignment/alignment_results"
-BAM_PATH="${INPUT_BAM_BAI_DIR}/${BAM_PATH}"
 
 # Výstupní složka pro výsledky WisecondorX (NPZ a grafy)
 OUTPUT_DIR="$BASE_DIR/wisecondorX/"                                         # Kam půjde výsledek (.npz a grafy)

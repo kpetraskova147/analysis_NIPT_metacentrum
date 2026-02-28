@@ -195,4 +195,4 @@ else
     exit 1
 fi      # fi - konec kontroly kopírování (podmínky if, převrácené if)
 
-echo "Hotovo: $RUN_NUMBER dne: $(date)" >> "$FINAL_OUTPUT_DIR/basecall_info.txt"
+echo "Hotovo: $RUN_NUMBER dne: $(date)" | tee -a "$FINAL_OUTPUT_DIR/basecall_info.txt"

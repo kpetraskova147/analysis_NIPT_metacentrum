@@ -96,10 +96,10 @@ echo "Scratch adresář: $SCRATCHDIR" >> $CENTRAL_LOG
 
 # Lokální log ve scratchi - specifický pro tuto úlohu, smaže se po úspěšném dokončení, ale pokud dojde k chybě, zůstane pro kontrolu
 echo "----------------------------------------------------------------" > basecall_info.txt
-echo "Spouštím úlohu: $RUN_NUMBER dne: $(date)" >> basecall_info.txt
+echo "Spouštím úlohu: $RUN_NUMBER dne: $(date)" | tee -a basecall_info.txt
 echo "Uzel: $(hostname -f)" | tee -a basecall_info.txt
 echo "Scratch adresář: $PWD" | tee -a basecall_info.txt
-echo "[1/3] Kopíruji vstupní pod5 data do scratche..." >> basecall_info.txt
+echo "[1/3] Kopíruji vstupní pod5 data do scratche..." | tee -a basecall_info.txt
 
 # Kopíruji všechna data (barcode složky) ze storage do scratche pro rychlé čtení
 cp -r "$INPUT_POD5_DIR" ./pod5_data
@@ -108,7 +108,7 @@ cp -r "$INPUT_POD5_DIR" ./pod5_data
 # 3. BASECALLING (DORADO SMYČKA)
 # =============================================================================
 
-echo "[2/3] Spouštím Dorado Basecaller pro jednotlivé barkody..." >> basecall_info.txt
+echo "[2/3] Spouštím Dorado Basecaller pro jednotlivé barkody..." | tee -a basecall_info.txt
 
 # Smyčka projde všechny podsložky barcode uvnitř nakopírovaných dat ve scratchi
 for BARCODE_PATH in ./pod5_data/barcode*; do
@@ -116,8 +116,8 @@ for BARCODE_PATH in ./pod5_data/barcode*; do
         continue
     fi
 
-    BARCODE_NAME=$(basename "${BARCODE_PATH}")
-    echo "Zpracovávám: ${BARCODE_NAME}" >> basecall_info.txt
+    BARCODE_NAME=${RUN_NUMBER}_$(basename "${BARCODE_PATH}")
+    echo "Zpracovávám: ${BARCODE_NAME}" | tee -a basecall_info.txt
     
     # Výsledek zapisujeme rovnou do scratche pod jménem barkodu (barcode01.fastq atd.)
     $DORADO_BIN basecaller \
@@ -136,7 +136,7 @@ done
 # 4. KOPÍROVÁNÍ VÝSLEDKŮ DOMŮ A ÚKLID
 # =============================================================================
 
-echo "[3/3] Kopíruji výsledky zpět na storage..." >> basecall_info.txt
+echo "[3/3] Kopíruji výsledky zpět na storage..." | tee -a basecall_info.txt
 
 # Vytvoření výstupní složky, pokud neexistuje
 mkdir -p $FINAL_OUTPUT_DIR        # mkdir -p: vytvoří složku, pokud neexistuje
@@ -156,4 +156,4 @@ else
     exit 1
 fi     # fi - konec kontroly kopírování (podmínky if, převrácené if)
 
-echo "Hotovo: $RUN_NUMBER dne: $(date)" >> "$FINAL_OUTPUT_DIR/basecall_info.txt"
+echo "Hotovo: $RUN_NUMBER dne: $(date)" | tee "$FINAL_OUTPUT_DIR/basecall_info.txt"
