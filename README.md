@@ -13,17 +13,26 @@ IMPORTANT: PBS -J settings.
 ## NANOPORE NIPT PIPELINE – ULTIMÁTNÍ CHEAT SHEET
 ### FÁZE 1: Dorado (Basecalling)
 Cíl: Převod surových signálů .pod5 na čtení .fastq.
+2 verze: 
+A) složky barcode01-xx s jednotlivými pod5 soubory (demultiplexing od nanoporu během sekvenace)
+- pokud jsou rozdělené pod5 soubory do složek jednotlivých barcodů, není třeba provádět demultiplexing znovu.
+B) všechny pod5 soubory dohromady
+- je potřeba provést demultiplexing
+
+Je nutné skript, který používám, přejmenovat pouze na dorado_basecall.sh, jinak to nebude fungovat.
+Nejideálnější je za mě mít dvě úložiště, nebo data dát do dvou různých složek a ve skriptu upravit cestu
+
 
 #### Co musíš mít ve složce basecalling:
-Skript: dorado_basecall.sh
+Skript: dorado_basecall.sh - PŘIPRAV!
 
-Data: Složka s pod5 daty (např. pod5_pass/run1_pass.pod5)
+Data: Složka s pod5 daty (run1_pod5_pass) / + podsložky jednotlivých barcodů (demultiplexing od nanoporu) - PŘIPRAV!
 
-Výstupní složka: basecall_results (vytvoří se, nebo ji připrav)
+Výstupní složka: basecall_results - PŘIPRAV!
 
 Logy: Složka run_logs
 
-Software: Složka dorado-1.0.0-linux-x64 obsahující složky bin a models
+Software: Složka dorado-1.0.0-linux-x64 obsahující složky bin a models - PŘIPRAV!
     bin - dorado
     models - dna_r10.4.1_e8.2_400bps_sup@v5.2.0/
            - methylation - dna_r10.4.1_e8.2_400bps_sup@v5.2.0_5mC_5hmC/
@@ -41,9 +50,9 @@ Kde otevřít terminál: Ve složce basecalling
 Cíl: Zarovnání .fastq na referenci a tvorba .bam / .bai souborů.
 
 #### Co musíš mít ve složce alignment:
-Skript: alignment_minimap2.sh
+Skript: alignment_minimap2. - PŘIPRAV!
 
-Reference: Referenční genom (např. hg38.fa).
+Reference: Referenční genom (např. hg38.fa ve složce). - PŘIPRAV!
         (stažený z Ensemblu nebo UCSC, musí být indexovaný minimap2 - pokud není, minimap2 si ho vytvoří při prvním spuštění)
 
 #### Nastavení a Spuštění:
@@ -71,13 +80,13 @@ Cíl: Detekce chromozomálních aberací a NIPT reporty.
         conda env create -f environment.yml
 
 ### Co musíš mít ve složce wisecondorX (Předletová příprava):
-Skript: skript_wisecondorX.sh
+Skript: skript_wisecondorX.sh - PŘIPRAV!
 
-Skript: uvod_kontrola.py
+Skript: uvod_kontrola.py - PŘIPRAV!
 
-Prostředí: environment.yml
+Prostředí: environment.yml - PŘIPRAV!
 
-Reference: Soubor reference.npz
+Reference: Soubor reference.npz - PŘIPRAV!
 
 #### Krok 3.0: WisecondorX (Tvorba reference)
 Cíl: Vytvoření "zlatého standardu" (reference) ze zdravých vzorků.
@@ -102,12 +111,21 @@ Kde otevřít terminál: Ve složce alignment_results (kde leží hotové BAMy).
 
 ##### Co spouštím:
 
+A) alignment proveden na metacentru:
         find "$PWD"/alignment_output_*/ -name "barcode*.bam" | awk -F/ '{
             run_dir=$(NF-1); 
             run_num=run_dir; gsub("alignment_output_", "", run_num); 
             bam_file=$NF; 
             barcode=bam_file; gsub(".bam", "", barcode); 
             print barcode"-run-"run_num " " $0 " " run_num
+        }' > /storage/praha1/home/TVUJ_LOGIN/wisecondorX/samples_seznam_wisecondorx.txt
+
+B) Alignment z epi2me:
+        find "$PWD" -type f -name "*.bam" | awk -F/ '{
+        bam_path = $0;
+        barcode = $(NF-1); 
+        run_num = "epi2me_run1"; 
+        print barcode " " bam_path " " run_num
         }' > /storage/praha1/home/TVUJ_LOGIN/wisecondorX/samples_seznam_wisecondorx.txt
 
 #### Krok 3.2: Kontrola a vytvoření logu
