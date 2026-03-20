@@ -49,16 +49,20 @@ BASE_DIR="/storage/praha1/home/TVUJ_LOGIN"
 
 # Umístění vstupních dat - FASTQ soubory (výsledek z Dorada)
 # číslo runu, v názvu složky s výsledky z Dorada (např. bassecall_output_123, kde 123 je číslo runu)
-INPUT_FASTQ="$BASE_DIR/alignment/basecall_results/basecall_output_${RUN_NUMBER}"
+INPUT_FASTQ="$BASE_DIR/RESULTS/basecall_results/basecall_output_${RUN_NUMBER}"
 
 # Umístění referenčního genomu (FASTA soubor)
 REF_GENOME="$BASE_DIR/reference_genomes_hg38/hg38.analysisSet.fa"
 
-# Kam uložit výsledky ze statistiky
-OUTPUT_DIR="$BASE_DIR/alignment/alignment_output_${RUN_NUMBER}"
+# Kam uložit výsledky (BAM, BAI)
+OUTPUT_DIR="$BASE_DIR/RESULTS/alignment_results/alignment_output_${RUN_NUMBER}"
+
+# Kam uložit statistiky (samtools stats, nanostat, mosdepth)
+STATS_DIR="$BASE_DIR/RESULTS/statistics_results/statistics_output_${RUN_NUMBER}"
 
 # Úložiště pro centrální logovací soubor - záznam o průběhu spuštěných úloh, uzlech a datech všech již projetých souborů.
-CENTRAL_LOG="$BASE_DIR/run_logs/alignment_history.txt"
+mkdir -p "$BASE_DIR/alignment/run_logs"
+CENTRAL_LOG="$BASE_DIR/alignment/run_logs/alignment_history.txt"
 
 # =============================================================================
 # 2. AUTOMATICKÝ VÝBĚR SOUBORU (Array Logic) - naklonování vzorků pro rychlejší analýzu
@@ -175,12 +179,12 @@ cp "${SAMPLE_NAME}".bam $OUTPUT_DIR/
 cp "${SAMPLE_NAME}".bam.bai $OUTPUT_DIR/
 
 # Kopírujeme statistiky pro fetální frakci (samtools)
-cp ${SAMPLE_NAME}_lengths.txt $OUTPUT_DIR/
-cp ${SAMPLE_NAME}_quality_coverage.txt $OUTPUT_DIR/
+cp ${SAMPLE_NAME}_lengths.txt $STATS_DIR/
+cp ${SAMPLE_NAME}_quality_coverage.txt $STATS_DIR/
 
 # Kopírujeme obecné statistiky kvality (nanostat, mosdepth)
-cp "${SAMPLE_NAME}_nanostat.txt" $OUTPUT_DIR/
-cp "${SAMPLE_NAME}_coverage.mosdepth.summary.txt" $OUTPUT_DIR/
+cp "${SAMPLE_NAME}_nanostat.txt" $STATS_DIR/
+cp "${SAMPLE_NAME}_coverage.mosdepth.summary.txt" $STATS_DIR/
 
 # Kopírujeme logovací soubor pro tuto úlohu
 cp alignment_info.txt $OUTPUT_DIR/${SAMPLE_NAME}_alignment_info.txt

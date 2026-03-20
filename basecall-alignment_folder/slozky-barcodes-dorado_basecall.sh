@@ -8,7 +8,7 @@
 #PBS -q gpu
 #PBS -j oe
 #PBS -m ae
-#PBS -M petraskkar@natur.cuni.cz
+#PBS -M tvojeadresa@blabla.cz
 
 # -q gpu: Zařazení do GPU fronty.
 # -j oe: Sloučení standardního výstupu (o) a chyb (e)do jednoho souboru pro snadnější kontrolu.
@@ -18,12 +18,12 @@
 # =============================================================================
 # INSTRUKCE
 # =============================================================================
-        # Vytvoř složku alignment a v ní složku basecall_results (pro výsledky z Dorada)
+        # Vytvoř složku RESULTS a v ní složku basecall_results (pro výsledky z Dorada) + alignment_results, wisecondorX_results, statistics_results
+        # DATA: složku pod5_pass s mými .pod5 soubory - ve složkách: run1_pod5_pass, run2_pod5_pass, ...
         # Vytvoř si složku basecalling a v ní:
-        # 1. SKRIPT: 'dorado_basecall.sh'
-        # 2. DATA: složku pod5_pass s mými .pod5 soubory - ve složkách: run1_pod5_pass, run2_pod5_pass, ...
-        # 3. SLOŽKA PRO CENTRAL LOGOVACÍ SOUBOR: run_logs
-        # 4. SLOŽKA dorado-1.0.0-linux-x64 - (SOFTWARE) složka bin - soubor dorado
+        # 1. SKRIPT: 'dorado_basecall.sh'   (nebo neni-roztrideny-barcodes-dorado_basecall.sh, slozky-barcodes-dorado_basecall.sh)
+        # 2. SLOŽKA PRO CENTRAL LOGOVACÍ SOUBOR: run_logs
+        # 3. SLOŽKA dorado-1.0.0-linux-x64 - (SOFTWARE) složka bin - soubor dorado
         #                                  - (MODELY) složka models - dna_r10.4.1_e8.2_400bps_sup@v5.2.0/    - lidský genom
         #                                                          (- dna_r10.4.1_e8.2_400bps_sup@v5.2.0_5mC_5hmC/   - methylace)
         # pozn.: pokud chci sledovat metylaci, musím odstranit # před --modified-bases-models a použít model s metylací 
@@ -33,7 +33,7 @@
 
         # Ve skriptu je nastavení zaslání mailu při ukončení nebo selhání úlohy - nastav svou mailovou adresu v PBS hlavičce (řádek #PBS -M) 
 
-        # Spuštění: qsub -v RUN_NUMBER="run1" dorado_basecall.sh
+        # Spuštění: qsub -v RUN_NUMBER="run1" dorado_basecall.sh    (nebo neni-roztrideny-barcodes-dorado_basecall.sh, slozky-barcodes-dorado_basecall.sh)
 
 
 # =============================================================================
@@ -42,13 +42,13 @@
 
 # Základní adresář, kde běží má analýza a mám zde uložena data
 # ÚPRAVA: TVUJ_LOGIN (můj osobní login na metacentru), praha1 (cluster, kde běží analýza a mám data)
-BASE_DIR="/storage/brno12-cerit/home/petraskkar"
+BASE_DIR="/storage/brno12-cerit/home/TVUJ_LOGIN"
 
 # Kde jsou vstupní data (.pod5)
-INPUT_POD5_DIR="$BASE_DIR/${RUN_NUMBER}_pod5_pass"   
+INPUT_POD5_DIR="$BASE_DIR/pod5_pass/${RUN_NUMBER}_pod5_pass"   
 
 # Kam půjde výsledek (.fastq)
-OUTPUT_DIR="$BASE_DIR/alignment/basecall_results"
+OUTPUT_DIR="$BASE_DIR/RESULTS/basecall_results"
 FINAL_OUTPUT_DIR="$OUTPUT_DIR/basecall_output_${RUN_NUMBER}"
 
 # Cesta k softwaru Dorado

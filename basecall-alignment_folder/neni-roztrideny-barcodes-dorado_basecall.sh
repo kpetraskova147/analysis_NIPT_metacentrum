@@ -8,7 +8,7 @@
 #PBS -q gpu
 #PBS -j oe
 #PBS -m ae
-#PBS -M petraskkar@natur.cuni.cz
+#PBS -M tvojeadresa@blabla.cz
 
 
 # -q gpu: Zařazení do GPU fronty.
@@ -18,9 +18,10 @@
 # =============================================================================
 # INSTRUKCE
 # =============================================================================
-        # Vytvoř složku alignment a v ní složku basecall_results (pro výsledky z Dorada)
+        # Vytvoř složku RESULTS a v ní složku basecall_results (pro výsledky z Dorada) + alignment_results, wisecondorX_results, statistics_results
+        # DATA: složku pod5_pass s mými .pod5 soubory - ve složkách: run1_pod5_pass, run2_pod5_pass, ...
         # Vytvoř si složku basecalling a v ní:
-        # 1. SKRIPT: 'dorado_basecall.sh'
+        # 1. SKRIPT: 'dorado_basecall.sh'   (neni-roztrideny-barcodes-dorado_basecall.sh, slozky-barcodes-dorado_basecall.sh)
         # 2. DATA: složku pod5_pass s mými .pod5 soubory - ve složkách: run1_pod5_pass, run2_pod5_pass, ...
         # 3. SLOŽKA PRO CENTRAL LOGOVACÍ SOUBOR: run_logs
         # 4. SLOŽKA dorado-1.0.0-linux-x64 - (SOFTWARE) složka bin - soubor dorado
@@ -33,7 +34,7 @@
 
         # Ve skriptu je nastavení zaslání mailu při ukončení nebo selhání úlohy - nastav svou mailovou adresu v PBS hlavičce (řádek #PBS -M) 
 
-        # Spuštění: qsub -v RUN_NUMBER="run1" dorado_basecall.sh
+        # Spuštění: qsub -v RUN_NUMBER="run1" dorado_basecall.sh       (neni-roztrideny-barcodes-dorado_basecall.sh, slozky-barcodes-dorado_basecall.sh)
 
 
 # =============================================================================
@@ -42,21 +43,21 @@
 
 # Základní adresář, kde běží má analýza a mám zde uložena data
 # ÚPRAVA: TVUJ_LOGIN (můj osobní login na metacentru), praha1 (cluster, kde běží analýza a mám data)
-BASE_DIR="/storage/brno12-cerit/home/petraskkar"
+BASE_DIR="/storage/brno12-cerit/home/TVUJ_LOGIN"
 
 # Kde jsou vstupní data (.pod5)
-INPUT_POD5_DIR="$BASE_DIR/${RUN_NUMBER}_pod5_pass"   # ${RUN_NUMBER}_pod5_pass = složka s pod5 soubory z konkrétního runu (run1_pod5_pass, ...)
+INPUT_POD5_DIR="$BASE_DIR/pod5_pass/${RUN_NUMBER}_pod5_pass"   # ${RUN_NUMBER}_pod5_pass = složka s pod5 soubory z konkrétního runu (run1_pod5_pass, ...)
 
 # Kam půjde výsledek (.fastq)
-OUTPUT_DIR="$BASE_DIR/alignment/basecall_results"
+OUTPUT_DIR="$BASE_DIR/RESULTS/basecall_results"
 FINAL_OUTPUT_DIR="$OUTPUT_DIR/basecall_output_${RUN_NUMBER}"
 
 # Cesta k softwaru Dorado
 DORADO_BIN="$BASE_DIR/software/dorado-1.0.0-linux-x64/bin/dorado"
 
 # Úložiště pro centrální logovací soubor - záznam o průběhu spuštěných úloh, uzlech a datech všech již projetých souborů.
-mkdir -p "$BASE_DIR/run_logs"           # vytvoříme složku pro logy, pokud neexistuje
-CENTRAL_LOG="$BASE_DIR/run_logs/basecall_history.txt"
+mkdir -p "$BASE_DIR/basecalling/run_logs"           # vytvoříme složku pro logy, pokud neexistuje
+CENTRAL_LOG="$BASE_DIR/basecalling/run_logs/basecall_history.txt"
 
 # Model: Pro PromethION R10.4.1 používám SUP (super accuracy) basecalling.
 MODEL="dna_r10.4.1_e8.2_400bps_sup@v5.2.0"
