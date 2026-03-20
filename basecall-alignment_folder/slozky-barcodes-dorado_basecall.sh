@@ -3,8 +3,8 @@
 # PBS HLAVIČKA - Nastavení zdrojů pro PromethION
 # =============================================================================
 #PBS -N Dorado_Basecall
-#PBS -l select=1:ncpus=16:mem=64gb:ngpus=1:gpu_cap=cuda80:scratch_local=1000gb
-#PBS -l walltime=6:00:00
+#PBS -l select=1:ncpus=8:mem=64gb:ngpus=1:scratch_local=800gb
+#PBS -l walltime=8:00:00
 #PBS -q gpu
 #PBS -j oe
 #PBS -m ae
@@ -42,21 +42,21 @@
 
 # Základní adresář, kde běží má analýza a mám zde uložena data
 # ÚPRAVA: TVUJ_LOGIN (můj osobní login na metacentru), praha1 (cluster, kde běží analýza a mám data)
-BASE_DIR="/storage/plzen1/home/petraskkar"
+BASE_DIR="/storage/brno12-cerit/home/petraskkar"
 
 # Kde jsou vstupní data (.pod5)
-INPUT_POD5_DIR="$BASE_DIR/basecalling/${RUN_NUMBER}_pod5_pass"   
+INPUT_POD5_DIR="$BASE_DIR/${RUN_NUMBER}_pod5_pass"   
 
 # Kam půjde výsledek (.fastq)
 OUTPUT_DIR="$BASE_DIR/alignment/basecall_results"
 FINAL_OUTPUT_DIR="$OUTPUT_DIR/basecall_output_${RUN_NUMBER}"
 
 # Cesta k softwaru Dorado
-DORADO_BIN="$BASE_DIR/dorado-1.0.0-linux-x64/bin/dorado"
+DORADO_BIN="$BASE_DIR/basecalling/dorado-1.0.0-linux-x64/bin/dorado"
 
 # Úložiště pro centrální logovací soubor
-mkdir -p "$BASE_DIR/run_logs"           
-CENTRAL_LOG="$BASE_DIR/run_logs/basecall_history.txt"
+mkdir -p "$BASE_DIR/basecalling/run_logs"           
+CENTRAL_LOG="$BASE_DIR/basecalling/run_logs/basecall_history.txt"
 
 # Model
 MODEL="$BASE_DIR/dorado-1.0.0-linux-x64/models/dna_r10.4.1_e8.2_400bps_sup@v5.2.0"
@@ -99,10 +99,7 @@ echo "----------------------------------------------------------------" > baseca
 echo "Spouštím úlohu: $RUN_NUMBER dne: $(date)" | tee -a basecall_info.txt
 echo "Uzel: $(hostname -f)" | tee -a basecall_info.txt
 echo "Scratch adresář: $PWD" | tee -a basecall_info.txt
-echo "[1/3] Kopíruji vstupní pod5 data do scratche..." | tee -a basecall_info.txt
 
-# Kopíruji všechna data (barcode složky) ze storage do scratche pro rychlé čtení
-cp -r "$INPUT_POD5_DIR" ./pod5_data
 
 # =============================================================================
 # 3. BASECALLING (DORADO SMYČKA)
@@ -111,7 +108,7 @@ cp -r "$INPUT_POD5_DIR" ./pod5_data
 echo "[2/3] Spouštím Dorado Basecaller pro jednotlivé barkody..." | tee -a basecall_info.txt
 
 # Smyčka projde všechny podsložky barcode uvnitř nakopírovaných dat ve scratchi
-for BARCODE_PATH in ./pod5_data/barcode*; do
+for BARCODE_PATH in "$INPUT_POD5_DIR"/barcode*; do
     if [ ! -d "${BARCODE_PATH}" ]; then
         continue
     fi
@@ -156,4 +153,4 @@ else
     exit 1
 fi     # fi - konec kontroly kopírování (podmínky if, převrácené if)
 
-echo "Hotovo: $RUN_NUMBER dne: $(date)" | tee "$FINAL_OUTPUT_DIR/basecall_info.txt"
+echo "Hotovo: $RUN_NUMBER dne: $(date)" | tee -a "$FINAL_OUTPUT_DIR/basecall_info.txt"

@@ -3,12 +3,12 @@
 # PBS HLAVIČKA - Nastavení zdrojů pro PromethION
 # =============================================================================
 #PBS -N Dorado_Basecall
-#PBS -l select=1:ncpus=16:mem=64gb:ngpus=1:gpu_cap=cuda80:scratch_local=1000gb
-#PBS -l walltime=24:00:00
+#PBS -l select=1:ncpus=8:mem=64gb:ngpus=1:scratch_local=800gb
+#PBS -l walltime=8:00:00
 #PBS -q gpu
 #PBS -j oe
 #PBS -m ae
-#PBS -M tvoje.adresa@email.cz
+#PBS -M petraskkar@natur.cuni.cz
 
 
 # -q gpu: Zařazení do GPU fronty.
@@ -42,10 +42,10 @@
 
 # Základní adresář, kde běží má analýza a mám zde uložena data
 # ÚPRAVA: TVUJ_LOGIN (můj osobní login na metacentru), praha1 (cluster, kde běží analýza a mám data)
-BASE_DIR="/storage/praha1/home/TVUJ_LOGIN"
+BASE_DIR="/storage/brno12-cerit/home/petraskkar"
 
 # Kde jsou vstupní data (.pod5)
-INPUT_POD5_DIR="$BASE_DIR/basecalling/pod5_pass/${RUN_NUMBER}_pod5_pass"   # ${RUN_NUMBER}_pod5_pass = složka s pod5 soubory z konkrétního runu (run1_pod5_pass, ...)
+INPUT_POD5_DIR="$BASE_DIR/${RUN_NUMBER}_pod5_pass"   # ${RUN_NUMBER}_pod5_pass = složka s pod5 soubory z konkrétního runu (run1_pod5_pass, ...)
 
 # Kam půjde výsledek (.fastq)
 OUTPUT_DIR="$BASE_DIR/alignment/basecall_results"
@@ -101,10 +101,6 @@ echo "Spouštím úlohu: $RUN_NUMBER dne: $(date)" | tee -a basecall_info.txt
 echo "Uzel: $(hostname -f)" | tee -a basecall_info.txt
 echo "Scratch adresář: $PWD" | tee -a basecall_info.txt
 
-echo "[1/3] Kopíruji vstupní pod5 data do scratche..." | tee -a basecall_info.txt
-# Kopírujeme data ze storage do scratche pro rychlé čtení
-cp -r $INPUT_POD5_DIR/* ./pod5_pass/
-
 # =============================================================================
 # 3. BASECALLING (DORADO)
 # =============================================================================
@@ -117,7 +113,7 @@ echo "[2/3] Spouštím Dorado Basecaller..." | tee -a basecall_info.txt
 
 $DORADO_BIN basecaller \
 $MODEL \
-./pod5_pass \
+"$INPUT_POD5_DIR" \
 --recursive \
 --min-qscore 9 \
 $KIT_NAME \
@@ -125,7 +121,7 @@ $METYLACE \
 --device cuda:0 \
 > temporary_unaligned.bam
 
-# ./pod5_pass = Cesta ke složce s pod5 soubory, které chceme basecallovat.
+# ./"$INPUT_POD5_DIR" = Cesta ke složce s pod5 soubory, které chceme basecallovat.
 # --recursive \ = Prohledá všechny pod5 soubory v adresáři a podadresářích (složkách).
 # --min-qscore 9 \ = Filtruje slabé čtení. Qscore 9 je poměrně přísný filtr, ale pro vysokou kvalitu dat je to dobrá volba.
 # --emit-fastq \ = Vypne generování BAM souborů (generuji až v další analýze). 
@@ -188,7 +184,7 @@ cp "$SCRATCHDIR/basecall_info.txt" "$FINAL_OUTPUT_DIR/basecall_info.txt"
 # - pokud ano, smažeme scratch, pokud ne, necháme data ve scratchi pro kontrolu.
 if [ -d "$FINAL_OUTPUT_DIR" ]; then
     echo "Kopírování úspěšné. Výsledky jsou v basecall_output_${RUN_NUMBER}. Mažu scratch." | tee -a basecall_info.txt
-    clean_scratch
+    clean_scratch!
 else
     echo "CHYBA: Soubor se nezkopíroval! Data zůstávají ve scratchi pro kontrolu." | tee -a basecall_info.txt
     # Schratch není smazán, abych mohla zkontrolovat chybu.

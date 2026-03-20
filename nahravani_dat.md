@@ -1,5 +1,5 @@
-NAHRÁNÍ OBJEMNÝCH SOUBORŮ (MOJE DATA) NA METACENTRUM
-RCLONE – INSTALACE, NASTAVENÍ – windows systém – pouze jednou
+### NAHRÁNÍ OBJEMNÝCH SOUBORŮ (MOJE DATA) NA METACENTRUM
+#### RCLONE – INSTALACE, NASTAVENÍ – windows systém – pouze jednou
 https://rclone.org/downloads/ - Intel/AMD - 64 Bit pro běžný počítač
 1. Spuštění
 1.	Otevřete složku, kde máte rozbalený stažený soubor rclone.exe.
@@ -20,7 +20,7 @@ o	Heslo musí být stejné jako mám na metacentru, ne ale v CASU – mohu to zm
 	Počkej 10-15 minut – než si to poví všechny servery
 •	U všeho ostatního mačkejte Enter, dokud se nevrátíte na začátek, pak dejte q (Quit).
 
-ZIPOVÁNÍ (7zip)
+#### ZIPOVÁNÍ (7zip)
 ❌ Nezipujte (Ztráta času), pokud:
 •	Máte pár velkých souborů (videa (.mp4), velké databáze, obrazy disků).
 •	Vaše soubory už jsou komprimované 
@@ -46,44 +46,41 @@ Programy
 •	WinRAR: V kolonce „Metoda komprese“ vyberte „Bez komprese“ (Store).
 •	Linux/MetaCentrum terminál: Pokud budete balit data na serveru, používá se příkaz tar -cvf archiv.tar slozka/. To „f“ znamená, že se to jen poskládá do souboru bez komprese (pro kompresi by tam bylo „z“).
 
-UNZIP (metacentrum – Linux terminál)
+#### UNZIP (metacentrum – Linux terminál)
 •	Na tento krok nesmím zapomenout! Zazipované soubory by nebylo možné zpracovat
 •	Pro .zip soubory: unzip jmeno_souboru.zip
 •	Tip: Pokud chceš rozbalovat do konkrétní složky: unzip jmeno_souboru.zip -d cilova_slozka
 
-NAHRÁNÍ DAT NA METACENTRUM – PŘÍKAZY 
+#### NAHRÁNÍ DAT NA METACENTRUM – PŘÍKAZY 
 Spuštění terminálu
 1.	Otevřete složku, kde máte rozbalený stažený soubor rclone.exe.
 2.	Do adresního řádku (cesta k souboru) napište cmd a stiskněte Enter. Otevře se terminál.
 V terminálu:
-rclone copy "C:\Cesta\K\Vasi\Slozce" meta:nazev-slozky -P
+
+        rclone copy "C:\Cesta\K\Vasi\Slozce" meta:nazev-slozky -P
+
 •	"C:\...": Cesta ve Vašem notebooku. 
 o	Pokud ji nechcete vypisovat, můžete soubor/složku do okna terminálu jednoduše přetáhnout myší a cesta se tam napíše sama.
 •	meta: Složka, kam má rclone uložit data na metacentru
 •	-P: Ukáže Vám v reálném čase, jak rychle data tečou a kdy to bude hotové.
 Pozn.: Rclone umí nahrát data i z externího disku připojeného k počítači (HDD, SSD, USB flashka, …). Musím pouze pozměnit cestu k datům: 
-•	rclone copy "D:\MojeData\Slozka" meta:slozka -P
+
+        rclone copy "D:\MojeData\Slozka" meta:slozka -P
+
 Rychlost externího disku: * Pokud máte starší pomalý disk (HDD) připojený přes USB, může rclone chvíli trvat, než si soubory "očuchá" (porovná velikosti), než začne samotné nahrávání. To je normální.
 Přerušení nahrávání – ERROR 
 Pokud přenos spadne, šipkou nahoru vyvolejte v terminálu poslední příkaz a pusťte ho znovu.
 Rclone během chvilky pozná, co už na MetaCentru je, a plynule naváže tam, kde skončil.
 Nahrávání více složek
 Přímo jedním příkazem dvě různé složky rclone nahrát neumí (vždy bere jeden zdroj a jeden cíl), ale můžete to vyřešit velmi elegantně dvěma způsoby:
-1. Postupné nahrávání (Doporučeno)
-Příkazy pro jednotlivé složky oddělím středníkem. Windows je spustí hned po sobě.
-•	rclone copy "D:\cesta-ke-Slozka1" meta:folder -P ; rclone copy "D:\cesta-ke-Slozka2" meta:folder -P
-2. Nahrání "Nadřazené" složky
+1. Nahrání "Nadřazené" složky
 •	Máte-li na disku D: složku Data a v ní složky Data1 a Data2, zadejte jako zdroj pouze D:\Data
 •	Rclone prohledá celý disk a nahraje obě složky (i všechno ostatní, co tam je)
-3. Dvě okna najednou (Paralelně)
-Protože rclone skoro nezatěžuje procesor, můžete udělat toto:
-1.	Otevřete si dva terminály (CMD).
-2.	V každém spusťte nahrávání jiné složky.
-3.	Budou se nahrávat současně. Tohle je super, pokud máte rychlý internet, protože tím maximálně využijete šířku pásma.
-MetaCentrum – přehled  
+
+#### MetaCentrum – přehled  
 1. Přenos souborů (Rclone)
 •	Nahrání dat: rclone copy "C:\Data-v-ntb" meta:/storage/brno12-cerit/home/petraskkar/ -P
-•	Stažení do ntb: rclone copy meta:/storage/brno12-cerit/home/petraskkar/vysledky "C:\Vysledky" -P
+•	Stažení do ntb: rclone copy meta:/storage/brno12-cerit/home/petraskkar/vysledky "C:\Vysledky" 
 •	Externí disk: rclone copy "D:\Data-na-disku" meta:/storage/brno12-cerit/home/petraskkar/ -P 
 •	Výpadky: Pokud spadne Wi-Fi, příkaz pusť znovu – rclone plynule naváže.
 •	Zipovat?: Jen u >10 000 malých souborů (použij režim "Store/Ukládat").
