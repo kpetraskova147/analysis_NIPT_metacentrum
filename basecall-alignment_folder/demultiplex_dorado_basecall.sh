@@ -3,12 +3,12 @@
 # PBS HLAVIČKA - Nastavení zdrojů pro PromethION
 # =============================================================================
 #PBS -N Dorado_Basecall
-#PBS -l select=1:ncpus=8:mem=64gb:ngpus=1:scratch_local=800gb
-#PBS -l walltime=8:00:00
+#PBS -l select=1:ncpus=250:mem=64gb:ngpus=1:scratch_local=800gb
+#PBS -l walltime=24:00:00
 #PBS -q gpu
 #PBS -j oe
 #PBS -m ae
-#PBS -M tvojeadresa@blabla.cz
+#PBS -M petraskkar@natur.cuni.cz
 
 
 # -q gpu: Zařazení do GPU fronty.
@@ -18,10 +18,9 @@
 # =============================================================================
 # INSTRUKCE
 # =============================================================================
-        # Vytvoř složku RESULTS a v ní složku basecall_results (pro výsledky z Dorada) + alignment_results, wisecondorX_results, statistics_results
-        # DATA: složku pod5_pass s mými .pod5 soubory - ve složkách: run1_pod5_pass, run2_pod5_pass, ...
+        # Vytvoř složku alignment a v ní složku basecall_results (pro výsledky z Dorada)
         # Vytvoř si složku basecalling a v ní:
-        # 1. SKRIPT: 'dorado_basecall.sh'   (neni-roztrideny-barcodes-dorado_basecall.sh, slozky-barcodes-dorado_basecall.sh)
+        # 1. SKRIPT: 'dorado_basecall.sh'
         # 2. DATA: složku pod5_pass s mými .pod5 soubory - ve složkách: run1_pod5_pass, run2_pod5_pass, ...
         # 3. SLOŽKA PRO CENTRAL LOGOVACÍ SOUBOR: run_logs
         # 4. SLOŽKA dorado-1.0.0-linux-x64 - (SOFTWARE) složka bin - soubor dorado
@@ -34,7 +33,7 @@
 
         # Ve skriptu je nastavení zaslání mailu při ukončení nebo selhání úlohy - nastav svou mailovou adresu v PBS hlavičce (řádek #PBS -M) 
 
-        # Spuštění: qsub -v RUN_NUMBER="run1" dorado_basecall.sh       (neni-roztrideny-barcodes-dorado_basecall.sh, slozky-barcodes-dorado_basecall.sh)
+        # Spuštění: qsub -v RUN_NUMBER="run1" dorado_basecall.sh
 
 
 # =============================================================================
@@ -43,21 +42,21 @@
 
 # Základní adresář, kde běží má analýza a mám zde uložena data
 # ÚPRAVA: TVUJ_LOGIN (můj osobní login na metacentru), praha1 (cluster, kde běží analýza a mám data)
-BASE_DIR="/storage/brno12-cerit/home/TVUJ_LOGIN"
+BASE_DIR="/storage/brno12-cerit/home/petraskkar"
 
 # Kde jsou vstupní data (.pod5)
-INPUT_POD5_DIR="$BASE_DIR/pod5_pass/${RUN_NUMBER}_pod5_pass"   # ${RUN_NUMBER}_pod5_pass = složka s pod5 soubory z konkrétního runu (run1_pod5_pass, ...)
+INPUT_POD5_DIR="$BASE_DIR/${RUN_NUMBER}_pod5_pass"   # ${RUN_NUMBER}_pod5_pass = složka s pod5 soubory z konkrétního runu (run1_pod5_pass, ...)
 
 # Kam půjde výsledek (.fastq)
 OUTPUT_DIR="$BASE_DIR/RESULTS/basecall_results"
 FINAL_OUTPUT_DIR="$OUTPUT_DIR/basecall_output_${RUN_NUMBER}"
 
 # Cesta k softwaru Dorado
-DORADO_BIN="$BASE_DIR/software/dorado-1.0.0-linux-x64/bin/dorado"
+DORADO_BIN="$BASE_DIR/basecalling/dorado-1.0.0-linux-x64/models/dorado"
 
 # Úložiště pro centrální logovací soubor - záznam o průběhu spuštěných úloh, uzlech a datech všech již projetých souborů.
-mkdir -p "$BASE_DIR/basecalling/run_logs"           # vytvoříme složku pro logy, pokud neexistuje
-CENTRAL_LOG="$BASE_DIR/basecalling/run_logs/basecall_history.txt"
+mkdir -p "$BASE_DIR/run_logs"           # vytvoříme složku pro logy, pokud neexistuje
+CENTRAL_LOG="$BASE_DIR/run_logs/basecall_history.txt"
 
 # Model: Pro PromethION R10.4.1 používám SUP (super accuracy) basecalling.
 MODEL="dna_r10.4.1_e8.2_400bps_sup@v5.2.0"
@@ -129,7 +128,7 @@ $METYLACE \
 # --device cuda:0 \ = Určuje, že chceme použít GPU pro zrychlení basecallingu. cuda:0 znamená první GPU v systému.
 
 # =============================================================================
-# 4. DEMULTIPLEXING (To je ten klíčový krok!)
+# 4. DEMULTIPLEXING
 # =============================================================================
 
 echo "[3/4] Rozděluji data podle barcodů (Demultiplexing) do složky ${RUN_NUMBER}_demultiplex_output..." | tee -a basecall_info.txt
@@ -137,7 +136,7 @@ echo "[3/4] Rozděluji data podle barcodů (Demultiplexing) do složky ${RUN_NUM
 mkdir ${RUN_NUMBER}_demultiplex_output # vytvoříme unikátní složku pro výstup z demultiplexingu, aby se nám data z různých úloh nemíchala}
 
 # Dorado Demux vezme ten BAM a rozseká ho na soubory do složky ${RUN_NUMBER}_demultiplex_output
-# --emit-fastq = generuje FASTQ soubory (místo BAM) pro každý barcode pro další analýzu (alignment).
+# --emit-fastq = generuje FASTQ soubory pro každý barcode pro další analýzu (alignment).
 
 $DORADO_BIN demux \
 --output-dir ./${RUN_NUMBER}_demultiplex_output \
@@ -185,7 +184,7 @@ cp "$SCRATCHDIR/basecall_info.txt" "$FINAL_OUTPUT_DIR/basecall_info.txt"
 # - pokud ano, smažeme scratch, pokud ne, necháme data ve scratchi pro kontrolu.
 if [ -d "$FINAL_OUTPUT_DIR" ]; then
     echo "Kopírování úspěšné. Výsledky jsou v basecall_output_${RUN_NUMBER}. Mažu scratch." | tee -a basecall_info.txt
-    clean_scratch!
+    clean_scratch
 else
     echo "CHYBA: Soubor se nezkopíroval! Data zůstávají ve scratchi pro kontrolu." | tee -a basecall_info.txt
     # Schratch není smazán, abych mohla zkontrolovat chybu.
