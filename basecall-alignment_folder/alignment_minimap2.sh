@@ -34,9 +34,9 @@
         # Po doběhnutí analýzu mohu spustit MultiQC pro přehled všech vzorků: multiqc . -o multiqc_report (spustím v OUTPUT_DIR, kde jsou všechny výsledky z jednotlivých vzorků)
         # MultiQC se podívá do všech podsložek, najde tam mosdepth summary a nanostat a vytvoří přehledný report s grafy pro všechny vzorky v jednom souboru (multiqc_report.html).
         # Spuštění MultiQC:
-        # 1. Přejdu do složky s výsledky (OUTPUT_DIR) - cd /storage/praha1/home/TVUJ_LOGIN/alignment/alignment_output_run1 
+        # 1. Přejdu do složky s výsledky (STATS_DIR) - cd /storage/praha1/home/TVUJ_LOGIN/RESULTS/statistics_results/statistics_output_run1 
         # 2. Načtu program: module add multiqc
-        # 3. Spustím: multiqc .
+        # 3. Spustím: multiqc . -o multiqc_report
 
 
 # =============================================================================
