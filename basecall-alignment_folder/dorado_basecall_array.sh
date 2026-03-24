@@ -10,6 +10,7 @@
 #PBS -j oe
 #PBS -m ae
 #PBS -M petraskkar@natur.cuni.cz
+#PBS -o /storage/brno12-cerit/home/petraskkar/basecalling/pbs_outputs/
 
 # -j oe: Sloučení standardního výstupu (o) a chyb (e)do jednoho souboru pro snadnější kontrolu.
 # -m ae: Odesílání emailů při ukončení (a) nebo selhání (e) úlohy. Ujisti se, že máš správně nastavenou emailovou adresu v PBS konfiguraci, aby ti dorazily notifikace.
@@ -26,6 +27,8 @@
         #                                  - (MODELY) složka models - dna_r10.4.1_e8.2_400bps_sup@v5.2.0/    - lidský genom
         #                                                          (- dna_r10.4.1_e8.2_400bps_sup@v5.2.0_5mC_5hmC/   - methylace)
         # 4. Uprav PBS -J pro počet barcode (např. -J 1-24 pro 24 barcodů)
+        # 5. složka pbs_outputs pro uložení výstupů z PBS (logy, chyby)
+
         # pozn.: pokud chci sledovat metylaci, musím odstranit # před --modified-bases-models a použít model s metylací 
         #        (dna_r10.4.1_e8.2_400bps_sup@v5.0.0_5mC_5hmC@v1) v 1. NASTAVENÍ UŽIVATELE (UPRAV POUZE TUTO ČÁST).
 

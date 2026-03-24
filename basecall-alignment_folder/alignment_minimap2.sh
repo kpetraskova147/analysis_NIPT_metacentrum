@@ -8,8 +8,9 @@
 #PBS -q default
 #PBS -j oe
 #PBS -m ae
-#PBS -M tvoje.adresa@email.cz
+#PBS -M petraskkar@natur.cuni.cz
 #PBS -J 0-23
+#PBS -o /storage/brno12-cerit/home/petraskkar/alignment/pbs_outputs/
 
 # -q gpu: Zařazení do GPU fronty.
 # -j oe: Sloučení standardního výstupu (o) a chyb (e)do jednoho souboru pro snadnější kontrolu.
@@ -22,7 +23,7 @@
         # Vytvoř si složku alignment a v ní:
         # 1. SKRIPT: 'alignment_minimap2.sh'
         # 2. REFERENČNÍ GENOM: např. hg38.fa (stažený z Ensemblu nebo UCSC, musí být indexovaný minimap2 - pokud není, minimap2 si ho vytvoří při prvním spuštění)
-
+        # 3. složka pbs_outputs pro uložení výstupů z PBS (logy, chyby)
         # Nastavení: upravím cesty v 1. NASTAVENÍ UŽIVATELE (UPRAV POUZE TUTO ČÁST).
         #          : upravím PBS -J pro počet vzorků (0-23 = 24 vzorků), které chci zpracovat a mailovou adresu pro notifikace.
 
@@ -34,9 +35,9 @@
         # Po doběhnutí analýzu mohu spustit MultiQC pro přehled všech vzorků: multiqc . -o multiqc_report (spustím v OUTPUT_DIR, kde jsou všechny výsledky z jednotlivých vzorků)
         # MultiQC se podívá do všech podsložek, najde tam mosdepth summary a nanostat a vytvoří přehledný report s grafy pro všechny vzorky v jednom souboru (multiqc_report.html).
         # Spuštění MultiQC:
-        # 1. Přejdu do složky s výsledky (STATS_DIR) - cd /storage/praha1/home/TVUJ_LOGIN/RESULTS/statistics_results/statistics_output_run1 
+        # 1. Přejdu do složky s výsledky (OUTPUT_DIR) - cd /storage/brno12-cerit/home/petraskkar/alignment/alignment_output_run1 
         # 2. Načtu program: module add multiqc
-        # 3. Spustím: multiqc . -o multiqc_report
+        # 3. Spustím: multiqc .
 
 
 # =============================================================================
@@ -44,32 +45,36 @@
 # =============================================================================
 
 # Základní adresář, kde běží má analýza a mám zde uložena data
-# ÚPRAVA: TVUJ_LOGIN (můj osobní login na Metacentru), praha1 (cluster, kde běží analýza a mám data)
-BASE_DIR="/storage/praha1/home/TVUJ_LOGIN"
+# ÚPRAVA: TVUJ_LOGIN (můj osobní login na Metacentru), brno12-cerit (cluster, kde běží analýza a mám data)
+BASE_DIR="/storage/brno12-cerit/home/petraskkar"
+
+# číslo runu, v názvu složky s výsledky z Dorada (např. bassecall_output_123, kde 123 je číslo runu)
 
 # Umístění vstupních dat - FASTQ soubory (výsledek z Dorada)
-# číslo runu, v názvu složky s výsledky z Dorada (např. bassecall_output_123, kde 123 je číslo runu)
-INPUT_FASTQ="$BASE_DIR/RESULTS/basecall_results/basecall_output_${RUN_NUMBER}"
+INPUT_DIR="$BASE_DIR/RESULTS/basecall_results/basecall_output_${RUN_NUMBER}"
+BC_NUM=$(printf "%02d" $((PBS_ARRAY_INDEX + 1)))
+INPUT_FILE="$INPUT_DIR/barcode$BC_NUM/run1_barcode$BC_NUM.fastq.gz"
+# Automatické určení cesty k fastq souboru pro daný barcode (01-24)
+# printf "%02d" zajistí, že se 1 změní na 01, 2 na 02 atd.
+# K indexu 0-23 přičítáme 1, aby barcody seděly (01-24)
 
 # Umístění referenčního genomu (FASTA soubor)
 REF_GENOME="$BASE_DIR/reference_genomes_hg38/hg38.analysisSet.fa"
 
-# Kam uložit výsledky (BAM, BAI)
-OUTPUT_DIR="$BASE_DIR/RESULTS/alignment_results/alignment_output_${RUN_NUMBER}"
-
-# Kam uložit statistiky (samtools stats, nanostat, mosdepth)
-STATS_DIR="$BASE_DIR/RESULTS/statistics_results/statistics_output_${RUN_NUMBER}"
+# Kam uložit výsledky ze statistiky
+OUTPUT_DIR="$BASE_DIR/RESULTS/alignment/alignment_output_${RUN_NUMBER}"
 
 # Úložiště pro centrální logovací soubor - záznam o průběhu spuštěných úloh, uzlech a datech všech již projetých souborů.
-mkdir -p "$BASE_DIR/alignment/run_logs"
-CENTRAL_LOG="$BASE_DIR/alignment/run_logs/alignment_history.txt"
+CENTRAL_LOG="$BASE_DIR/run_logs/alignment_history.txt"
+
+FASTQ_FILE=".fastq.gz"
 
 # =============================================================================
 # 2. AUTOMATICKÝ VÝBĚR SOUBORU (Array Logic) - naklonování vzorků pro rychlejší analýzu
 # =============================================================================
 
 # 1. Načteme všechny fastq soubory ze vstupní složky do pole (array seznamu)
-FILES=(${INPUT_FASTQ}/*.fastq)
+FILES=(${INPUT_FASTQ}/*$FASTQ_FILE)
 
 # 2. Vybereme soubor pro tuto konkrétní úlohu podle indexu pole ($PBS_ARRAY_INDEX)
 INPUT_FILE=${FILES[$PBS_ARRAY_INDEX]}
@@ -81,7 +86,7 @@ if [ -z "$INPUT_FILE" ]; then
 fi
 
 # 4. Získáme čisté jméno vzorku (např. z 'cesta/barcode05.fastq' udělá 'barcode05')
-SAMPLE_NAME=$(basename "$INPUT_FILE" .fastq)
+SAMPLE_NAME=$(basename "$INPUT_FILE" FASTQ_FILE)
 
 # =============================================================================
 # 3. PŘÍPRAVA PROSTŘEDÍ
@@ -117,10 +122,10 @@ echo "Referenční genom: $(basename $REF_GENOME)" | tee -a alignment_info.txt
 # =============================================================================
 
 echo "[1/4] Kopíruji data..." | tee -a alignment_info.txt
-cp $INPUT_FILE ./input.fastq
+cp $INPUT_FILE ./input$FASTQ_FILE
 cp $REF_GENOME ./hg38.analysisSet.fa
 
-if [ ! -f "input.fastq" ] || [ ! -f "hg38.analysisSet.fa" ]; then
+if [ ! -f "input$FASTQ_FILE" ] || [ ! -f "hg38.analysisSet.fa" ]; then
     echo "CHYBA: Vstupní soubory chybí!" | tee -a alignment_info.txt
     exit 1
 fi
@@ -130,7 +135,7 @@ fi
 # =============================================================================
 
 echo "[2/4] Spouštím Minimap2..." | tee -a alignment_info.txt
-minimap2 -ax map-ont -t 16 --MD -R "@RG\tID:${SAMPLE_NAME}\tSM:${SAMPLE_NAME}" ./hg38.analysisSet.fa ./input.fastq \
+minimap2 -ax map-ont -t 16 --MD -R "@RG\tID:${SAMPLE_NAME}\tSM:${SAMPLE_NAME}" ./hg38.analysisSet.fa ./input$FASTQ_FILE \
 | samtools view -b - \
 | samtools sort -o "${SAMPLE_NAME}".bam -
 
@@ -179,12 +184,12 @@ cp "${SAMPLE_NAME}".bam $OUTPUT_DIR/
 cp "${SAMPLE_NAME}".bam.bai $OUTPUT_DIR/
 
 # Kopírujeme statistiky pro fetální frakci (samtools)
-cp ${SAMPLE_NAME}_lengths.txt $STATS_DIR/
-cp ${SAMPLE_NAME}_quality_coverage.txt $STATS_DIR/
+cp ${SAMPLE_NAME}_lengths.txt $OUTPUT_DIR/
+cp ${SAMPLE_NAME}_quality_coverage.txt $OUTPUT_DIR/
 
 # Kopírujeme obecné statistiky kvality (nanostat, mosdepth)
-cp "${SAMPLE_NAME}_nanostat.txt" $STATS_DIR/
-cp "${SAMPLE_NAME}_coverage.mosdepth.summary.txt" $STATS_DIR/
+cp "${SAMPLE_NAME}_nanostat.txt" $OUTPUT_DIR/
+cp "${SAMPLE_NAME}_coverage.mosdepth.summary.txt" $OUTPUT_DIR/
 
 # Kopírujeme logovací soubor pro tuto úlohu
 cp alignment_info.txt $OUTPUT_DIR/${SAMPLE_NAME}_alignment_info.txt
