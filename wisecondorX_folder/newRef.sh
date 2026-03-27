@@ -33,8 +33,10 @@ module load conda
 
 # Kontrola, zda prostředí existuje. Pokud ne, musím ho instalovat z environment.yml
 if ! conda info --envs | grep -q "wisecondorX_env"; then
-    echo "--- Prostředí wisecondorX_env nebylo nalezeno. Je třeba ho instalovat. ---"
-    exit 1
+    echo "--- Prostředí wisecondorX_env nebylo nalezeno. Probíhá instalace. ---"
+    conda install --file environment.yml
+else
+    echo "--- Prostředí wisecondorX_env již existuje. ---"
 fi
 
 conda activate wisecondorX_env
@@ -48,6 +50,7 @@ BASE_DIR="/storage/praha1/home/TVUJ_LOGIN"
 INPUT_DIR="${BASE_DIR}/wisecondorX/ALL_NPZ"
 OUTPUT_DIR="${BASE_DIR}/wisecondorX/references"
 REF_SIZES="1000 500 200 100"    # Velikosti binů v kb
+# cores = cpus
 
 # Vytvoření výstupní složky, pokud neexistuje
 mkdir -p "${OUTPUT_DIR}"

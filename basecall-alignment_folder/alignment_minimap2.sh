@@ -59,7 +59,7 @@ INPUT_FILE="$INPUT_DIR/barcode$BC_NUM/run1_barcode$BC_NUM.fastq.gz"
 # K indexu 0-23 přičítáme 1, aby barcody seděly (01-24)
 
 # Umístění referenčního genomu (FASTA soubor)
-REF_GENOME="$BASE_DIR/reference_genomes_hg38/hg38.analysisSet.fa"
+REF_GENOME="$BASE_DIR/alignment/reference_genomes_hg38/hg38.analysisSet.fa"
 
 # Kam uložit výsledky ze statistiky
 OUTPUT_DIR="$BASE_DIR/RESULTS/alignment/alignment_output_${RUN_NUMBER}"

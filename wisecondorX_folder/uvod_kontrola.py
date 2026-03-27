@@ -32,8 +32,8 @@ def spustit_kontrolu():
 # 1. Kontrola existence seznamu vzorků, důležitých pro PBS funkce ve wisecondorx skriptu
 # =======================================================================================================    
 
-base_dir = "/storage/praha1/home/TVUJ_LOGIN"
-input_dir = f"{base_dir}/alignment/alignment_results"
+base_dir = "/storage/brno12-cerit/home/petraskkar"
+input_dir = f"{base_dir}/RESULTS/alignment_results"
 
 if not os.path.exists(seznam_soubor):
     print(f"CHYBA: Soubor '{seznam_soubor}' neexistuje!")
@@ -87,7 +87,7 @@ if chybejici_bai:
     if len(chybejici_bai) > 10:
         print(f"  ... a {len(chybejici_bai)-10} dalších chyb.")
     print("\nAnalýza nemůže být spuštěna. Oprav cesty nebo doplň indexy.")
-    return
+    exit()
 
 # =====================================================================================================    
 # 4. Potvrzení a zápis logu
@@ -95,7 +95,7 @@ if chybejici_bai:
 pocet = len(vzorky)
 print(f"\nVše v pořádku! Nalezeno {pocet} vzorků.")
 for r, count in sorted(runy.items()):
-    print(f"   Run {r}: {count} vzorků")
+    print(f"Run {r}: {count} vzorků")
 
 potvrzeni = input(f"\nJe počet {pocet} správný? Chceš vytvořit log? (ano/ne): ")
     
