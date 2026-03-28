@@ -22,8 +22,8 @@ Na storage:
 - vytvoř složku RESULTS
 - vstupní data s pod5 soubory ve složce: run1_pod5_pass, run2_pod5_pass ...
 - vytvoř složku basecalling a v ní:
-        - 1. skript: dorado_basecall_array.sh
-        - 2. složka: dorado-1.0.0-linux-x64 a v ní:
+    - 1. skript: dorado_basecall_array.sh
+    - 2. složka: dorado-1.0.0-linux-x64 a v ní:
                 - (software) složka "bin" - soubor "dorado"
                 - (modely) složka "models" - soubor "dna_r10.4.1_e8.2_400bps_sup@v5.2.0/"    - lidský genom
                                           (- soubor "- dna_r10.4.1_e8.2_400bps_sup@v5.2.0_5mC_5hmC/"   - methylace)
@@ -50,10 +50,13 @@ Na storage:
 - data: cesta k nim: RESULTS/basecalling_results/basecalling_output_run1/barcode01-xx/.pod5
         - pokud spouštím tuto analýzu na data, u kterých nebylo spuštěno dorado, mohu upravit cestu a nahrát je jinam
 - vytvoř složku alignment a v ní:
-        - 1. skript: alignment_minimap2.sh
-        - 2. referenční genom: složka "reference_genome_Hg38" - soubor "hg38.mmi" (indexovaný genom)
-                - genom musí být indexován, pokud chci, aby analýza probíhala rychleji
-                        - genom hg38.analysisSet.fa stažený z Ensemblu nebo UCSC indexuji v terminálu na metacentru příkazem: 
+  
+   - 1. skript: alignment_minimap2.sh
+   - 2. referenční genom: složka "reference_genome_Hg38" - soubor "hg38.mmi" (indexovaný genom)
+
+         - genom musí být indexován, pokud chci, aby analýza probíhala rychleji
+  
+         - genom hg38.analysisSet.fa stažený z Ensemblu nebo UCSC indexuji v terminálu na metacentru příkazem: 
 
                                 module add minimap2
                                 minimap2 -x map-ont -d hg38.mmi hg38.analysisSet.fa
@@ -87,12 +90,14 @@ Na storage:
 - data: cesta k nim: RESULTS/basecalling_results/basecalling_output_run1/barcode01-xx/.pod5
         - pokud spouštím tuto analýzu na data, u kterých nebylo spuštěno dorado, můžeš upravit cestu a nahrát je jinam
 - vytvoř složku wisecondorX a v ní:
-        - 1. skript: skript_wisecondorX.sh 
-        - 2. prostředí: environment.yml - pro vytvoření prostředí s verzemi knihoven, které se nebudou měnit (dobrá kooperace, stálé prostředí)
-                -!! je třeba instalovat před spuštěním analýzy příkazem: conda install --file environment.yml
-        - 3. reference - soubor "reference.npz"
-                - referenci mohu vytvořit pomocí skriptu newRef.sh
-        - 4. VOLITELNÉ: skript: uvod_kontrola.py - spíše pro mou kontrolu jestli mám vše připravené, nemusím spouštět
+  - 1. skript: skript_wisecondorX.sh 
+  - 2. prostředí: environment.yml - pro vytvoření prostředí s verzemi knihoven, které se nebudou měnit (dobrá kooperace, stálé prostředí)
+
+       - !! je třeba instalovat před spuštěním analýzy příkazem: conda install --file environment.yml
+  - 3. reference - soubor "reference.npz"
+  
+       - referenci mohu vytvořit pomocí skriptu newRef.sh
+  - 4. VOLITELNÉ: skript: uvod_kontrola.py - spíše pro mou kontrolu jestli mám vše připravené, nemusím spouštět
 
 #### Tvorba reference
 Ve složce wisecondorX:
@@ -108,9 +113,10 @@ Příkaz:
         qsub newRef.sh
 
 #### WisecondorX analýza
-- Nastavení: Uprav PBS -J pro počet barcode (např. -J 1-24 pro 24 barcodů)
-           : Uprav cesty k datům v 1. NASTAVENÍ UŽIVATELE (UPRAV POUZE TUTO ČÁST), pokud jsou jiné
-           : Uprav svůj mail v PBS -M → zaslání mailu po ukončení / selhání úlohy
+- Nastavení
+   - Uprav PBS -J pro počet barcode (např. -J 1-24 pro 24 barcodů)
+   - Uprav cesty k datům v 1. NASTAVENÍ UŽIVATELE (UPRAV POUZE TUTO ČÁST), pokud jsou jiné
+   - Uprav svůj mail v PBS -M → zaslání mailu po ukončení / selhání úlohy
 
 ##### Spuštění:
 Terminál otevřít ve složce "alignment"
