@@ -3,29 +3,36 @@
 # PBS HLAVIČKA
 # =============================================================================
 #PBS -N Minimap2_and_Stats
-#PBS -l select=1:ncpus=16:mem=64gb:scratch_local=400gb
-#PBS -l walltime=12:00:00
+#PBS -l select=1:ncpus=32:mem=64gb:scratch_local=80gb
+#PBS -l walltime=6:00:00
 #PBS -q default
 #PBS -j oe
 #PBS -m ae
+
 #PBS -M petraskkar@natur.cuni.cz
-#PBS -J 0-23
+#PBS -J 1-24
 #PBS -o /storage/brno12-cerit/home/petraskkar/alignment/pbs_outputs/
 
 # -q gpu: Zařazení do GPU fronty.
-# -j oe: Sloučení standardního výstupu (o) a chyb (e)do jednoho souboru pro snadnější kontrolu.
+# -j oe: Sloučení standardního výstupu (o) a chyb (e) do jednoho souboru pro snadnější kontrolu.
 # -m ae: Odesílání emailů při ukončení (a) nebo selhání (e) úlohy. Ujisti se, že máš správně nastavenou emailovou adresu v PBS konfiguraci, aby ti dorazily notifikace.
-# -J 0-23: Spuštění pole úloh pro zpracování 24 vzorků (indexy 0-23). Uprav podle počtu svých vzorků.
+# -J 1-24: Spuštění pole úloh pro zpracování 24 vzorků (indexy 1-24). Uprav podle počtu svých vzorků.
+
+# více cpus - rychlejší a více věcí na ráz, je to rychlejší, ale náročnější na paměť - musím mít více mem 
+# select=1 - pošle moji úlohu na jeden server - ekosystém serverů, které jsou propojené a mají společný přístup k datům, takže můžu využít více CPU a paměti na jednom serveru.
+# ncpu = procesory, které chci využít pro svou úlohu - více CPU znamená, že mi může probíhat více úloh najednou
+# mem = RAM, paměť, kterou chci využít pro svou úlohu - více paměti znamená, že můžu zpracovat větší data nebo více dat najednou, extrémně rychlé disky pro dočasnou paměť
+# scratch = SSD disk
+# 2 Gb mem na 1 CPU - standardní poměr
 
 # =============================================================================
 # INSTRUKCE
 # =============================================================================
         # Vytvoř si složku alignment a v ní:
         # 1. SKRIPT: 'alignment_minimap2.sh'
-        # 2. REFERENČNÍ GENOM: např. hg38.fa (stažený z Ensemblu nebo UCSC, musí být indexovaný minimap2 - pokud není, minimap2 si ho vytvoří při prvním spuštění)
-        # 3. složka pbs_outputs pro uložení výstupů z PBS (logy, chyby)
+        # 2. REFERENČNÍ GENOM: hg38.mmi - např. hg38.analysisSet.fa (stažený z Ensemblu nebo UCSC, musí být indexovaný minimap2 - hg38.mmi - ke staženína gitHubu)
         # Nastavení: upravím cesty v 1. NASTAVENÍ UŽIVATELE (UPRAV POUZE TUTO ČÁST).
-        #          : upravím PBS -J pro počet vzorků (0-23 = 24 vzorků), které chci zpracovat a mailovou adresu pro notifikace.
+        #          : upravím PBS -J pro počet vzorků (1-24 = 24 vzorků), které chci zpracovat a mailovou adresu pro notifikace.
 
         # Ve skriptu je nastavení zaslání mailu při ukončení nebo selhání úlohy - nastav svou mailovou adresu v PBS hlavičce (řádek #PBS -M v PBS hlavička)
 
@@ -35,58 +42,95 @@
         # Po doběhnutí analýzu mohu spustit MultiQC pro přehled všech vzorků: multiqc . -o multiqc_report (spustím v OUTPUT_DIR, kde jsou všechny výsledky z jednotlivých vzorků)
         # MultiQC se podívá do všech podsložek, najde tam mosdepth summary a nanostat a vytvoří přehledný report s grafy pro všechny vzorky v jednom souboru (multiqc_report.html).
         # Spuštění MultiQC:
-        # 1. Přejdu do složky s výsledky (OUTPUT_DIR) - cd /storage/brno12-cerit/home/petraskkar/alignment/alignment_output_run1 
+        # 1. Přejdu do složky s výsledky (OUTPUT_DIR) - cd /storage/brno12-cerit/home/petraskkar/RESULTS/alignment/alignment_output_run1 
         # 2. Načtu program: module add multiqc
         # 3. Spustím: multiqc .
 
+# =============================================================================
+# 0. KONTROLA VSTUPNÍCH PROMĚNNÝCH
+# =============================================================================
+mkdir -p "pbs_outputs"
+
+set -euo pipefail   # přísnější režim pro lepší detekci chyb, -e: skript se zastaví při jakékoliv chybě, -u: chyba při použití nedefinované proměnné, -o pipefail: chyba v jakékoliv části pipy způsobí selhání celé pipy
+# jakmile cokoliv neprojde, skript se zastaví a nepokračuje dál
+
+if [ -z "${RUN_NUMBER:-}" ]; then
+    echo "Chyba: RUN_NUMBER není nastaven." >&2
+    echo "Spuštění: qsub -v RUN_NUMBER=run1 alignment_minimap2.sh" >&2
+    exit 1
+fi
+
+if [ -z "${PBS_ARRAY_INDEX:-}" ]; then
+    echo "Chyba: PBS_ARRAY_INDEX není nastaven." >&2
+    exit 1
+fi
+
+BARCODE=$(printf "barcode%02d" "$PBS_ARRAY_INDEX")  # vytvoří název barcode01, barcode02, ... podle indexu pole
 
 # =============================================================================
 # 1. NASTAVENÍ UŽIVATELE (UPRAV TUTO ČÁST)
 # =============================================================================
 
+# číslo runu, v názvu složky s výsledky z Dorada (např. bassecall_output_123, kde 123 je číslo runu)
+
 # Základní adresář, kde běží má analýza a mám zde uložena data
 # ÚPRAVA: TVUJ_LOGIN (můj osobní login na Metacentru), brno12-cerit (cluster, kde běží analýza a mám data)
 BASE_DIR="/storage/brno12-cerit/home/petraskkar"
 
-# číslo runu, v názvu složky s výsledky z Dorada (např. bassecall_output_123, kde 123 je číslo runu)
-
-# Umístění vstupních dat - FASTQ soubory (výsledek z Dorada)
-INPUT_DIR="$BASE_DIR/RESULTS/basecall_results/basecall_output_${RUN_NUMBER}"
-BC_NUM=$(printf "%02d" $((PBS_ARRAY_INDEX + 1)))
-INPUT_FILE="$INPUT_DIR/barcode$BC_NUM/run1_barcode$BC_NUM.fastq.gz"
-# Automatické určení cesty k fastq souboru pro daný barcode (01-24)
-# printf "%02d" zajistí, že se 1 změní na 01, 2 na 02 atd.
-# K indexu 0-23 přičítáme 1, aby barcody seděly (01-24)
-
-# Umístění referenčního genomu (FASTA soubor)
-REF_GENOME="$BASE_DIR/alignment/reference_genomes_hg38/hg38.analysisSet.fa"
-
-# Kam uložit výsledky ze statistiky
-OUTPUT_DIR="$BASE_DIR/RESULTS/alignment/alignment_output_${RUN_NUMBER}"
-
-# Úložiště pro centrální logovací soubor - záznam o průběhu spuštěných úloh, uzlech a datech všech již projetých souborů.
-CENTRAL_LOG="$BASE_DIR/run_logs/alignment_history.txt"
-
 FASTQ_FILE=".fastq.gz"
 
+# Umístění vstupních dat - FASTQ soubory (výsledek z Dorada)
+INPUT_DIR="$BASE_DIR/RESULTS/basecall_results"
+RUN_INPUT_DIR="$INPUT_DIR/basecall_output_${RUN_NUMBER}"
+INPUT_FILE="$RUN_INPUT_DIR/$BARCODE"
+
+# Umístění referenčního genomu (FASTA soubor)
+REF_GENOME="$BASE_DIR/alignment/reference_genomes_Hg38/hg38.mmi"   # indexovaný referenční genom pro minimap2
+# Kam uložit výsledky ze statistiky
+BAM_OUTPUT_DIR="$BASE_DIR/RESULTS/alignment"
+RUN_bam_OUTPUT_DIR="$BAM_OUTPUT_DIR/alignment_output_${RUN_NUMBER}"
+FINAL_bam_OUTPUT_DIR="$RUN_bam_OUTPUT_DIR/$BARCODE"
+
+# Výsledky ze statistiky
+STATS_OUTPUT_DIR="$BASE_DIR/RESULTS/statistics"
+RUN_STATS_OUTPUT_DIR="$STATS_OUTPUT_DIR/statistics_output_${RUN_NUMBER}"
+FINAL_stats_OUTPUT_DIR="$RUN_STATS_OUTPUT_DIR/$BARCODE"
+
+# Úložiště pro centrální logovací soubor - záznam o průběhu spuštěných úloh, uzlech a datech všech již projetých souborů.
+LOG_DIR="$BASE_DIR/alignment/run_logs"
+CENTRAL_LOG="$LOG_DIR/alignment_history.txt"
+
+mkdir -p "$LOG_DIR"
+mkdir -p "$BAM_OUTPUT_DIR"
+mkdir -p "$STATS_OUTPUT_DIR"
+mkdir -p "$RUN_bam_OUTPUT_DIR"
+mkdir -p "$RUN_STATS_OUTPUT_DIR"
+
 # =============================================================================
-# 2. AUTOMATICKÝ VÝBĚR SOUBORU (Array Logic) - naklonování vzorků pro rychlejší analýzu
+# 2.KONTROLA VSTUPNÍCH DAT A PROSTŘEDÍ
 # =============================================================================
-
-# 1. Načteme všechny fastq soubory ze vstupní složky do pole (array seznamu)
-FILES=(${INPUT_FASTQ}/*$FASTQ_FILE)
-
-# 2. Vybereme soubor pro tuto konkrétní úlohu podle indexu pole ($PBS_ARRAY_INDEX)
-INPUT_FILE=${FILES[$PBS_ARRAY_INDEX]}
-
-# 3. Kontrola, zda jsme nevybrali prázdno (pokud je index mimo rozsah)
 if [ -z "$INPUT_FILE" ]; then
     echo "CHYBA: Index $PBS_ARRAY_INDEX je mimo rozsah dostupných souborů! UPRAV PBS -J nebo zkontroluj počet souborů ve složce." | tee -a $CENTRAL_LOG
     exit 1
 fi
 
-# 4. Získáme čisté jméno vzorku (např. z 'cesta/barcode05.fastq' udělá 'barcode05')
-SAMPLE_NAME=$(basename "$INPUT_FILE" FASTQ_FILE)
+if [ ! -d "$INPUT_DIR" ]; then
+    echo "Chyba: neexistuje vstupní barcode adresář: $INPUT_DIR" >&2
+    exit 1
+fi
+
+if [ ! -f "$REF_GENOME" ]; then
+    echo "Chyba: referenční genom neexistuje: $REF_GENOME" >&2
+    exit 1
+fi
+
+if [ -z "${SCRATCHDIR:-}" ]; then
+    echo "Chyba: SCRATCHDIR není nastaven." >&2
+    exit 1
+fi
+
+# Čisté jméno vzorku (např. z 'cesta/barcode05.fastq' udělá 'barcode05')
+SAMPLE_NAME=$(basename "$INPUT_FILE" "$FASTQ_FILE")
 
 # =============================================================================
 # 3. PŘÍPRAVA PROSTŘEDÍ
@@ -98,46 +142,52 @@ module add samtools
 module add mosdepth
 module add nanostat
 
-# Kontrola existence SCRATCHDIRu a přechod do něj
-test -n "$SCRATCHDIR" || { echo >&2 "Chyba: SCRATCHDIR není nastaven!"; exit 1; }
-cd $SCRATCHDIR || { echo >&2 "Chyba: Nelze vstoupit do scratche!"; exit 2; }
+# =============================================================================
+# 4. PŘESUN DO SCRATCHE, INFO DO LOGŮ
+# =============================================================================
+
+cd "$SCRATCHDIR"
+echo "[1/4] Kopíruji data do scratche..." | tee -a alignment_info.txt
+cp $INPUT_FILE ./input${FASTQ_FILE}
+cp $REF_GENOME ./hg38.mmi
+
+JOB_LOG="$SCRATCHDIR/alignment_info.txt"
+TMP_BAM="$SCRATCHDIR/${RUN_NUMBER}_${BARCODE}.bam"          # dočasný BAM soubor ve scratchi, před kompresí
+TMP_BAM_BAI="$SCRATCHDIR/${RUN_NUMBER}_${BARCODE}.bam.bai"    # dočasný BAM.BAI soubor ve scratchi, před kopírováním zpět na storage
 
 # Logování pro kontrolu - logovací soubor bude obsahovat informace o spuštění úlohy, uzlu a cestě ke scratchi
 # 1. Centrální logovací soubor pro všechny úlohy v hlavní složce
-echo "=== START ALIGNMENTU ===" >> $CENTRAL_LOG
-echo "Spouštím úlohu: $RUN_NUMBER dne: $(date)" >> $CENTRAL_LOG
-echo "Uzel: $(hostname -f)" >> $CENTRAL_LOG
-echo "Scratch adresář: $SCRATCHDIR" >> $CENTRAL_LOG
-echo "Referenční genom: $(basename $REF_GENOME)" >> $CENTRAL_LOG
+{
+    echo "------------------------------------------------------------------"
+    echo "Spouštím úlohu: $RUN_NUMBER / $BARCODE dne: $(date)"
+    echo "Uzel: $(hostname -f)"
+    echo "Scratch adresář: $SCRATCHDIR"
+    echo "Array index: $PBS_ARRAY_INDEX"
+    echo "Referenční genom: $(basename $REF_GENOME)"
+} >> "$CENTRAL_LOG"
 
 # 2. Logovací soubor specifický pro tuto úlohu ve scratchi - smaže se po úspěšném dokončení, ale pokud dojde k chybě, zůstane pro kontrolu
-echo "=== START ALIGNMENTU ===" | tee alignment_info.txt
-echo "Spouštím úlohu: $RUN_NUMBER dne: $(date)" | tee -a alignment_info.txt
-echo "Uzel: $(hostname -f)" | tee -a alignment_info.txt
-echo "Scratch adresář: $PWD" | tee -a alignment_info.txt
-echo "Referenční genom: $(basename $REF_GENOME)" | tee -a alignment_info.txt
-
-# =============================================================================
-# 4. KOPÍROVÁNÍ VSTUPU DO SCRATCHE
-# =============================================================================
-
-echo "[1/4] Kopíruji data..." | tee -a alignment_info.txt
-cp $INPUT_FILE ./input$FASTQ_FILE
-cp $REF_GENOME ./hg38.analysisSet.fa
-
-if [ ! -f "input$FASTQ_FILE" ] || [ ! -f "hg38.analysisSet.fa" ]; then
-    echo "CHYBA: Vstupní soubory chybí!" | tee -a alignment_info.txt
-    exit 1
-fi
+{
+    echo "------------------------------------------------------------------"
+    echo "Run: $RUN_NUMBER"
+    echo "Barcode: $BARCODE"
+    echo "Datum: $(date)"
+    echo "Uzel: $(hostname -f)"
+    echo "Scratch: $SCRATCHDIR"
+    echo "Vstup: $INPUT_FILE"
+    echo "Výstup: $FINAL_bam_OUTPUT_DIR & $FINAL_stats_OUTPUT_DIR"
+    echo "Array index: $PBS_ARRAY_INDEX"
+    echo "Referenční genom: $(basename $REF_GENOME)"
+} | tee -a "$JOB_LOG"
 
 # =============================================================================
 # 5. ALIGNMENT (MINIMAP2 -> SORT)
 # =============================================================================
 
 echo "[2/4] Spouštím Minimap2..." | tee -a alignment_info.txt
-minimap2 -ax map-ont -t 16 --MD -R "@RG\tID:${SAMPLE_NAME}\tSM:${SAMPLE_NAME}" ./hg38.analysisSet.fa ./input$FASTQ_FILE \
+minimap2 -ax map-ont -t 16 --MD -R "@RG\tID:${SAMPLE_NAME}\tSM:${SAMPLE_NAME}" ./hg38.mmi ./input$FASTQ_FILE \
 | samtools view -b - \
-| samtools sort -o "${SAMPLE_NAME}".bam -
+| samtools sort -o $TMP_BAM -
 
 # Výstup z minimap2 jde přímo do samtools view, který ho převádí na BAM, a ten jde rovnou do samtools sort, který ho seřadí a uloží.
 #      | = Neukládej výstup na disk, rovnou ho přepošli dalšímu příkazu. "-" na konci = vstupní data hledej z předchozího příkazu "|".
@@ -148,7 +198,7 @@ minimap2 -ax map-ont -t 16 --MD -R "@RG\tID:${SAMPLE_NAME}\tSM:${SAMPLE_NAME}" .
 # samtools sort -o SAMPLE_NAME.bam -: Seřadit BAM soubor a uložit jako SAMPLE_NAME.bam.
 
 echo "Indexuji BAM - vznik BAM.BAI..." | tee -a alignment_info.txt
-samtools index "${SAMPLE_NAME}".bam
+samtools index $TMP_BAM
 
 # =============================================================================
 # 6. GENERAVÁNÍ DAT PRO STATISTIKU
@@ -157,7 +207,7 @@ samtools index "${SAMPLE_NAME}".bam
 echo "[3/4] Počítám a rozděluji statistiky (Samtools, NanoStat, Mosdepth)..." | tee -a alignment_info.txt
 
 # --- A) STATISTIKY PRO FETÁLNÍ FRAKCI ---
-samtools stats "${SAMPLE_NAME}".bam > full_stats.tmp        # kompletní statistika, dočasný soubor
+samtools stats $TMP_BAM > full_stats.tmp        # kompletní statistika, dočasný soubor
 grep "^RL" full_stats.tmp > ${SAMPLE_NAME}_lengths.txt      # délky readů pro další analýzu (např. pro výpočet fetální frakce, z řádků RL = read length)
 grep -E "^(SN|CO|FFQ)" full_stats.tmp > ${SAMPLE_NAME}_quality_coverage.txt     # kvalita a pokrytí pro další analýzu (z řádků SN, CO, FFQ)
 # SN (Summary - obsahuje error rate/accuracy)
@@ -166,39 +216,60 @@ grep -E "^(SN|CO|FFQ)" full_stats.tmp > ${SAMPLE_NAME}_quality_coverage.txt     
 
 # --- B) OBECNÉ STATISTIKY KVALITY (NanoStat a Mosdepth) ---
 # NanoStat (vytvoří soubor s celkovým přehledem kvality readů)
-NanoStat --bam "${SAMPLE_NAME}.bam" -t 16 > "${SAMPLE_NAME}_nanostat.txt"
+NanoStat --bam $TMP_BAM -t 16 > "${SAMPLE_NAME}_nanostat.txt"
+# -t 16: Použít 16 jader procesoru pro rychlejší běh. (NCPUS)
 
 # Mosdepth (vytvoří soubory s výpočtem pokrytí pro MultiQC)
-mosdepth -n -t 4 "${SAMPLE_NAME}_coverage" "${SAMPLE_NAME}.bam"
+mosdepth -n -t 4 "${SAMPLE_NAME}_coverage" "$TMP_BAM"
 
 # =============================================================================
-# 7. KOPÍROVÁNÍ VÝSLEDKŮ
+# 7. KONTROLA VÝSLEDKU ALIGNMENTU A STATISTIKY
 # =============================================================================
 
-echo "[4/4] Kopíruji výsledky..." | tee -a alignment_info.txt
+echo "[Kontrola] Prověřuji výstupní soubory..." | tee -a "$JOB_LOG"
 
-mkdir -p $OUTPUT_DIR
+# Seznam souborů ke kontrole
+FILES_TO_CHECK=(
+    "$TMP_BAM"
+    "$TMP_BAM_BAI"
+    "${SAMPLE_NAME}_lengths.txt"
+    "${SAMPLE_NAME}_quality_coverage.txt"
+    "${SAMPLE_NAME}_nanostat.txt"
+    "${SAMPLE_NAME}_coverage.mosdepth.summary.txt"
+)
+
+for FILE in "${FILES_TO_CHECK[@]}"; do
+    if [ ! -s "$FILE" ]; then
+        echo "KRITICKÁ CHYBA: Soubor $FILE neexistuje nebo je prázdný!" | tee -a "$JOB_LOG" >&2
+        exit 1
+    fi
+done
+
+# =============================================================================
+# 8. KOPÍROVÁNÍ VÝSLEDKŮ
+# =============================================================================
+
+echo "[4/4] Kopíruji výsledky do $FINAL_bam_OUTPUT_DIR a $FINAL_stats_OUTPUT_DIR..." | tee -a alignment_info.txt
+
+mkdir -p $FINAL_bam_OUTPUT_DIR
+mkdir -p $FINAL_stats_OUTPUT_DIR
 
 # Kopírujeme BAM, BAI
-cp "${SAMPLE_NAME}".bam $OUTPUT_DIR/
-cp "${SAMPLE_NAME}".bam.bai $OUTPUT_DIR/
+cp $TMP_BAM $FINAL_bam_OUTPUT_DIR/
+cp $TMP_BAM_BAI $FINAL_bam_OUTPUT_DIR/
 
 # Kopírujeme statistiky pro fetální frakci (samtools)
-cp ${SAMPLE_NAME}_lengths.txt $OUTPUT_DIR/
-cp ${SAMPLE_NAME}_quality_coverage.txt $OUTPUT_DIR/
+cp ${SAMPLE_NAME}_lengths.txt $FINAL_stats_OUTPUT_DIR/
+cp ${SAMPLE_NAME}_quality_coverage.txt $FINAL_stats_OUTPUT_DIR/
 
 # Kopírujeme obecné statistiky kvality (nanostat, mosdepth)
-cp "${SAMPLE_NAME}_nanostat.txt" $OUTPUT_DIR/
-cp "${SAMPLE_NAME}_coverage.mosdepth.summary.txt" $OUTPUT_DIR/
+cp "${SAMPLE_NAME}_nanostat.txt" $FINAL_stats_OUTPUT_DIR/
+cp "${SAMPLE_NAME}_coverage.mosdepth.summary.txt" $FINAL_stats_OUTPUT_DIR/
 
 # Kopírujeme logovací soubor pro tuto úlohu
-cp alignment_info.txt $OUTPUT_DIR/${SAMPLE_NAME}_alignment_info.txt
+cp alignment_info.txt $FINAL_bam_OUTPUT_DIR/alignment_info.txt
+
+echo "ÚSPĚCH: HOTOVO! Výsledky zkopírovány do $FINAL_bam_OUTPUT_DIR a $FINAL_stats_OUTPUT_DIR..." | tee -a $FINAL_bam_OUTPUT_DIR/alignment_info.txt
 
 # Úklid
-if [ -s "$OUTPUT_DIR/${SAMPLE_NAME}.bam" ]; then
-    echo "ÚSPĚCH: Hotovo. Mažu scratch." | tee -a alignment_info.txt
-    clean_scratch
-else
-    echo "CHYBA: Soubor se nezkopíroval! Data zůstávají ve scratchi. Přenes je manuálně do $OUTPUT_DIR" | tee -a alignment_info.txt
-    exit 1
-fi
+clean_scratch

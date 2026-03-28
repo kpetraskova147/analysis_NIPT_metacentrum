@@ -5,109 +5,139 @@ In this repository, you can find scripts for basecalling, alignment and wisecond
 
 IMPORTANT: PBS -J settings. 
 
-        Minimap2 is counting files and folders from zero
-                - PBS -J 0-23 for 24 samples
-        WisecondorX is counting files and folders from 1
+        Dorado, Minimap2 and WisecondorX is counting files and folders from 1
                 - PBS -J 1-24 for 24 samples
 
 ## NANOPORE NIPT PIPELINE – ULTIMÁTNÍ CHEAT SHEET
 ### FÁZE 1: Dorado (Basecalling)
 Cíl: Převod surových signálů .pod5 na čtení .fastq.
-2 verze: 
-A) složky barcode01-xx s jednotlivými pod5 soubory (demultiplexing od nanoporu během sekvenace)
-- pokud jsou rozdělené pod5 soubory do složek jednotlivých barcodů, není třeba provádět demultiplexing znovu.
-B) všechny pod5 soubory dohromady
-- je potřeba provést demultiplexing
 
-Je nutné skript, který používám, přejmenovat pouze na dorado_basecall.sh, jinak to nebude fungovat.
-Nejideálnější je za mě mít dvě úložiště, nebo data dát do dvou různých složek a ve skriptu upravit cestu
+Složky barcode01-xx s jednotlivými pod5 soubory (demultiplexing od nanoporu během sekvenace)
+!!DEMULTIPLEXING JE TŘEBA PROVÉST UŽ BĚHEM SEKVENACE, JINAK ANALÝZA TRVÁ VELMI DLOUHO!!
+
+Pokud chceš analyzovat data bez Dorada nebo z Epi2Me, nejideálnější je za mě mít data na různých storage na metacentru pro jednotlivé analýzy a ve skriptu upravit cestu, ať je v tom pořádek
+
+##### INSTRUKCE
+Na storage: 
+- vytvoř složku RESULTS
+- vstupní data s pod5 soubory ve složce: run1_pod5_pass, run2_pod5_pass ...
+- vytvoř složku basecalling a v ní:
+        - 1. skript: dorado_basecall_array.sh
+        - 2. složka: dorado-1.0.0-linux-x64 a v ní:
+                - (software) složka "bin" - soubor "dorado"
+                - (modely) složka "models" - soubor "dna_r10.4.1_e8.2_400bps_sup@v5.2.0/"    - lidský genom
+                                          (- soubor "- dna_r10.4.1_e8.2_400bps_sup@v5.2.0_5mC_5hmC/"   - methylace)
+                                          pozn.: pokud chci sledovat metylaci, musím odstranit # před --modified-bases-models a použít model s metylací (dna_r10.4.1_e8.2_400bps_sup@v5.0.0_5mC_5hmC@v1) v 1. NASTAVENÍ UŽIVATELE (UPRAV POUZE TUTO ČÁST).
+- Nastavení: Uprav PBS -J pro počet barcode (např. -J 1-24 pro 24 barcodů)
+           : Uprav cesty k datům v 1. NASTAVENÍ UŽIVATELE (UPRAV POUZE TUTO ČÁST), pokud jsou jiné
+           : Uprav svůj mail v PBS -M → zaslání mailu po ukončení / selhání úlohy
 
 
-#### Co musíš mít ve složce basecalling:
-Skript: dorado_basecall.sh - PŘIPRAV!
-
-Data: Složka s pod5 daty (run1_pod5_pass) / + podsložky jednotlivých barcodů (demultiplexing od nanoporu) - PŘIPRAV!
-
-Výstupní složka: basecall_results - PŘIPRAV!
-
-Logy: Složka run_logs
-
-Software: Složka dorado-1.0.0-linux-x64 obsahující složky bin a models - PŘIPRAV!
-    bin - dorado
-    models - dna_r10.4.1_e8.2_400bps_sup@v5.2.0/
-           - methylation - dna_r10.4.1_e8.2_400bps_sup@v5.2.0_5mC_5hmC/
-
-#### Nastavení a Spuštění:
-Ve skriptu: Uprav cesty v sekci 1, zkontroluj názvy modelů a nezapomeň nastavit svůj e-mail v hlavičce (#PBS -M). Pokud chceš metylaci, odstraň # před --modified-bases-models a použij příslušný model.
-
-Kde otevřít terminál: Ve složce basecalling
+        # Spuštění: qsub -v RUN_NUMBER="run1" dorado_basecall_array.sh
 
 ##### Spuštění:
+Terminál otevřít ve složce "basecalling"
+Příkaz (číslo runu se samozřejmě mění):
 
         qsub -v RUN_NUMBER="run1" dorado_basecall.sh
 
 ### FÁZE 2: Minimap2 (Alignment) + MultiQC
 Cíl: Zarovnání .fastq na referenci a tvorba .bam / .bai souborů.
 
-#### Co musíš mít ve složce alignment:
-Skript: alignment_minimap2. - PŘIPRAV!
+##### INSTRUKCE
+Na storage: 
+- vytvoř složku RESULTS (pokud ještě není vytvořena)
+- data: cesta k nim: RESULTS/basecalling_results/basecalling_output_run1/barcode01-xx/.pod5
+        - pokud spouštím tuto analýzu na data, u kterých nebylo spuštěno dorado, mohu upravit cestu a nahrát je jinam
+- vytvoř složku alignment a v ní:
+        - 1. skript: alignment_minimap2.sh
+        - 2. referenční genom: složka "reference_genome_Hg38" - soubor "hg38.mmi" (indexovaný genom)
+                - genom musí být indexován, pokud chci, aby analýza probíhala rychleji
+                        - genom hg38.analysisSet.fa stažený z Ensemblu nebo UCSC indexuji v terminálu na metacentru příkazem: 
 
-Reference: Referenční genom (např. hg38.fa ve složce). - PŘIPRAV!
-        (stažený z Ensemblu nebo UCSC, musí být indexovaný minimap2 - pokud není, minimap2 si ho vytvoří při prvním spuštění)
+                                module add minimap2
+                                minimap2 -x map-ont -d hg38.mmi hg38.analysisSet.fa
 
-#### Nastavení a Spuštění:
-Ve skriptu: Uprav cesty, doplň e-mail a pozor na číslování! Nastav #PBS -J 0-X (kde X je počet vzorků mínus 1, např. 0-23 pro 24 vzorků). Moduly nech zafixované (např. minimap2/2.26).
-
-Kde otevřít terminál: Ve složce alignment
+- Nastavení: Uprav PBS -J pro počet barcode (např. -J 1-24 pro 24 barcodů)
+           : Uprav cesty k datům v 1. NASTAVENÍ UŽIVATELE (UPRAV POUZE TUTO ČÁST), pokud jsou jiné
+           : Uprav svůj mail v PBS -M → zaslání mailu po ukončení / selhání úlohy
 
 ##### Spuštění:
+Terminál otevřít ve složce "alignment"
+Příkaz (číslo runu se samozřejmě mění):
 
         qsub -v RUN_NUMBER="run1" alignment_minimap2.sh
 
 #### Kontrola kvality (MultiQC):
-Po doběhnutí analýzy přejdi do výstupní složky (např. alignment/alignment_output_run1), kde se nachází výsledky všech vzorků, a vygeneruj si souhrnný report:
-
-        module add multiqc
-        multiqc .
-
-MultiQC se podívá do všech podsložek, najde tam mosdepth summary a nanostat a vytvoří přehledný report s grafy pro všechny vzorky v jednom souboru (multiqc_report.html).
+Po doběhnutí analýzy mohu spustit MultiQC pro přehled všech vzorků
+- MultiQC se podívá do všech podsložek, najde tam mosdepth summary a nanostat a vytvoří přehledný report s grafy pro všechny vzorky v jednom souboru (multiqc_report.html)
+Spuštění MultiQC:
+        1. Přejdu do složky s výsledky (OUTPUT_DIR) - cd /storage/brno12-cerit/home/petraskkar/RESULTS/alignment/alignment_output_run1 
+        2. Načtu program: module add multiqc
+        3. Spustím: multiqc .
 
 ### FÁZE 3: WisecondorX (NIPT Analýza)
 Cíl: Detekce chromozomálních aberací a NIPT reporty.
+Skript provádí dvě hlavní operace: konverzi BAM souboru do NPZ formátu a následnou analýzu (predict) pomocí WisecondorX. 
+Tento skript je navržen pro spuštění jako PBS job array, kde každý vzorek je zpracováván samostatně. Výstupy jsou organizovány do struktury složek podle vzorků a runů.
 
-###### IMPORTANT: Před prvním spuštěním analýzu musím instalovat conda environment: 
+##### INSTRUKCE
+Na storage: 
+- vytvoř složku RESULTS (pokud ještě není vytvořena)
+- data: cesta k nim: RESULTS/basecalling_results/basecalling_output_run1/barcode01-xx/.pod5
+        - pokud spouštím tuto analýzu na data, u kterých nebylo spuštěno dorado, můžeš upravit cestu a nahrát je jinam
+- vytvoř složku wisecondorX a v ní:
+        - 1. skript: skript_wisecondorX.sh 
+        - 2. prostředí: environment.yml - pro vytvoření prostředí s verzemi knihoven, které se nebudou měnit (dobrá kooperace, stálé prostředí)
+                -!! je třeba instalovat před spuštěním analýzy příkazem: conda install --file environment.yml
+        - 3. reference - soubor "reference.npz"
+                - referenci mohu vytvořit pomocí skriptu newRef.sh
+        - 4. VOLITELNÉ: skript: uvod_kontrola.py - spíše pro mou kontrolu jestli mám vše připravené, nemusím spouštět
 
-        conda env create -f environment.yml
+#### Tvorba reference
+Ve složce wisecondorX:
+- složka "ALL_NPZ" s npz soubory pro vytvoření reference (do této složky se průběžně přidávají všechny npz soubory ze spuštěných runů - je nutná manuální selekce zdravých jedinců)
+- Výstup: uloží se do složky "references" jako reference_1000kb_[DATUM].npz
+- pro použití je potřeba ji přesunout do wisecondorX složky a přejmenovat na reference.npz (+ si napsat někam poznámku o původním názvu)
+- můžu vytvořit pouze jednu referenci a používat ji dokola, nebo můžu reference aktualizovat
 
-### Co musíš mít ve složce wisecondorX (Předletová příprava):
-Skript: skript_wisecondorX.sh - PŘIPRAV!
-
-Skript: uvod_kontrola.py - PŘIPRAV!
-
-Prostředí: environment.yml - PŘIPRAV!
-
-Reference: Soubor reference.npz - PŘIPRAV!
-
-#### Krok 3.0: WisecondorX (Tvorba reference)
-Cíl: Vytvoření "zlatého standardu" (reference) ze zdravých vzorků.
-        - referenci mohu vytvořit pomocí skriptu newRef.sh
-        - vytvoří mi referenci ze souborů v ALL_NPZ složce (ve složce wisecondorX)
-        - uloží se do složky references (ve wisecondorX) jako reference_{velikost}kb_datum.npz
-        - pro použití je potřeba ji přesunout do wisecondorX složky a přejmenovat na reference.npz (můžu si napsat někam poznámku o původním jménu)
-        - můžu vytvořit pouze jednu referenci a používat ji dokola, nebo můžu reference aktualizovat
-
-Kde otevřít terminál: Složka wisecondorX
-
-Vstup: Všechny dostupné .npz soubory zdravých vzorků uložené ve složce ALL_NPZ.
-
-##### Co spouštím:
+##### Spuštění:
+Terminál otevřít ve složce "wisecondorX"
+Příkaz:
 
         qsub newRef.sh
 
-Výstup: Soubory reference_1000kb_[DATUM].npz jsou uložené ve složce references.
+#### WisecondorX analýza
+- Nastavení: Uprav PBS -J pro počet barcode (např. -J 1-24 pro 24 barcodů)
+           : Uprav cesty k datům v 1. NASTAVENÍ UŽIVATELE (UPRAV POUZE TUTO ČÁST), pokud jsou jiné
+           : Uprav svůj mail v PBS -M → zaslání mailu po ukončení / selhání úlohy
+
+##### Spuštění:
+Terminál otevřít ve složce "alignment"
+Příkaz (číslo runu se samozřejmě mění):
+ 
+        conda install --file environment.yml (pouze 1, instalace prostředí)
+
+        (1. python3 uvod_kontrola.py - VOLITELNÉ, kontrola vstupních dat a jestli mám vše zadané, ale kontrola i v skript_wisecondorX.sh)
+
+        qsub -v RUN_NUMBER="run1" skript_wisecondroX.sh
+
+
+
+
+### VOLITELNÉ:
+#### Krok 3.2: Kontrola a vytvoření logu - uvod_kontrola.sh
+Tento skript slouží ke kontrole, zda mám vše nastavené správně. Není ale potřeba, je to spíš volitelné. Kontroly jsou i ve skript_wisecondorX.sh - je to spíš pro informaci, že jsem na nic nezapomněla
+
+Spuštění:
+Terminál otevřít ve složce "wisecondroX"
+Příkaz:
+
+        python3 uvod_kontrola.py
+
 
 #### Krok 3.1: Vygenerování seznamu vzorků
-Kde otevřít terminál: Ve složce alignment_results (kde leží hotové BAMy).
+Není důležité, vhodné pouze pokud bych chtěl nadpis grafu se jménem pacienta ale bylo by to zbytečně komplikované
 
 ##### Co spouštím:
 
@@ -128,21 +158,6 @@ B) Alignment z epi2me:
         print barcode " " bam_path " " run_num
         }' > /storage/praha1/home/TVUJ_LOGIN/wisecondorX/samples_seznam_wisecondorx.txt
 
-#### Krok 3.2: Kontrola a vytvoření logu
-Kde otevřít terminál: Nyní se přesuň do složky wisecondorX
-
-##### Co spouštím:
-
-        python3 uvod_kontrola.py
-
-#### Krok 3.3: Spuštění výpočtu
-Ve skriptu: Pokud Python nevyhodil chyby, otevři skript_wisecondorX.sh. Zkontroluj cesty, uprav e-mail a nastav #PBS -J 1-X (zde se naopak začíná od 1, přesně podle počtu, který ti nahlásil Python).
-
-Kde otevřít terminál: Stále ve složce wisecondorX
-
-##### Spuštění:
-
-        qsub skript_wisecondorX.sh
 
 
 

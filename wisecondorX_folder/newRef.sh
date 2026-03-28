@@ -1,33 +1,26 @@
 #!/bin/bash
 # ==============================================================================
-# PBS PARAMETRY
-# ==============================================================================
-#PBS -N WisecondorX_NewRef
-#PBS -l select=1:ncpus=8:mem=32gb:scratch_local=20gb
-#PBS -l walltime=3:00:00
-#PBS -o systemove_logy/
-#PBS -e systemove_logy/
-#PBS -m ae
-
-# ==============================================================================
 # Skript pro vytvoření referenčního souboru pro WisecondorX
-
-# INSTRUKCE:
 # ==============================================================================
-        # Tento skript je navržen pro spuštění na clusteru Metacentrum a slouží 
-            # k vytvoření referenčního souboru pro WisecondorX. Skript prochází všechny 
-            # .npz soubory ve specifikované složce, které obsahují data z BAM souborů, 
-            # a vytváří referenční soubor pro různé velikosti binů (1000 kb, 500 kb, 200 kb, 100 kb). 
-            # Výstupní referenční soubor je pojmenován podle velikosti binů a aktuálního data.
-        
-        # Před spuštěním:
-        # 1. Uprav BASE_DIR v 2. kapitole (PARAMETRY ANALÝZY)
+# INSTRUKCE:
+    # # Vytvoř si složku wisecondorX a v ní:
+        # 1. SKRIPT: 'newRef.sh'
+        # 2. složka "ALL_NPZ" s npz soubory pro vytvoření reference 
+        # (do této složky se průběžně přidávají všechny npz soubory ze spuštěných runů 
+        # je nutná manuální selekce zdravých jedinců)
+        # Výstup: uloží se do složky "references" jako reference_1000kb_[DATUM].npz
+        # pro použití je potřeba ji přesunout do wisecondorX složky a přejmenovat na reference.npz 
+        # (+ si napsat někam poznámku o původním názvu)
+        # Spuštění: terminál ve složce wisecondorX
+            # qsub newRef.sh
 
 # ==============================================================================
 # 1. KONFIGURACE CONDA PROSTŘEDÍ
 # ==============================================================================
-cd $PBS_O_WORKDIR
-mkdir -p systemove_logy
+
+# Uprav cestu k tvému storage
+WORK_DIR="/storage/brno12-cerit/home/petraskkar/wisecondorX"
+cd "$WORK_DIR"
 
 module load conda
 
@@ -36,7 +29,7 @@ if ! conda info --envs | grep -q "wisecondorX_env"; then
     echo "--- Prostředí wisecondorX_env nebylo nalezeno. Probíhá instalace. ---"
     conda install --file environment.yml
 else
-    echo "--- Prostředí wisecondorX_env již existuje. ---"
+    echo "--- Prostředí wisecondorX_env již existuje. Aktivace. ---"
 fi
 
 conda activate wisecondorX_env
@@ -46,9 +39,8 @@ echo "--- Prostředí wisecondorX_env aktivováno. ---"
 # 2. PARAMETRY ANALÝZY
 # ==============================================================================
 CORES=8
-BASE_DIR="/storage/praha1/home/TVUJ_LOGIN"
-INPUT_DIR="${BASE_DIR}/wisecondorX/ALL_NPZ"
-OUTPUT_DIR="${BASE_DIR}/wisecondorX/references"
+INPUT_DIR="${WORK_DIR}/ALL_NPZ"
+OUTPUT_DIR="${WORK_DIR}/references"
 REF_SIZES="1000 500 200 100"    # Velikosti binů v kb
 # cores = cpus
 

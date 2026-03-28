@@ -3,13 +3,14 @@
 # PBS HLAVIČKA - Nastavení zdrojů pro PromethION
 # =============================================================================
 #PBS -N Dorado_Basecall_Array
-#PBS -J 1-24
 #PBS -l select=1:ncpus=8:mem=64gb:ngpus=1:scratch_local=800gb
 #PBS -l walltime=12:00:00
 #PBS -q gpu
 #PBS -j oe
 #PBS -m ae
+
 #PBS -M petraskkar@natur.cuni.cz
+#PBS -J 1-24
 #PBS -o /storage/brno12-cerit/home/petraskkar/basecalling/pbs_outputs/
 
 # -j oe: Sloučení standardního výstupu (o) a chyb (e)do jednoho souboru pro snadnější kontrolu.
@@ -22,12 +23,10 @@
         # DATA: složku pod5_pass s mými .pod5 soubory - ve složkách: run1_pod5_pass, run2_pod5_pass, ...
         # Vytvoř si složku basecalling a v ní:
         # 1. SKRIPT: 'dorado_basecall_array.sh'   (neni-roztrideny-barcodes-dorado_basecall.sh, slozky-barcodes-dorado_basecall.sh)
-        # 2. DATA: složku pod5_pass s mými .pod5 soubory - ve složkách: run1_pod5_pass, run2_pod5_pass, ... - upravit cestu k nim / mít soubory v BASE_DIR
-        # 3. SLOŽKA dorado-1.0.0-linux-x64 - (SOFTWARE) složka bin - soubor dorado
+        # 2. SLOŽKA dorado-1.0.0-linux-x64 - (SOFTWARE) složka bin - soubor dorado
         #                                  - (MODELY) složka models - dna_r10.4.1_e8.2_400bps_sup@v5.2.0/    - lidský genom
         #                                                          (- dna_r10.4.1_e8.2_400bps_sup@v5.2.0_5mC_5hmC/   - methylace)
-        # 4. Uprav PBS -J pro počet barcode (např. -J 1-24 pro 24 barcodů)
-        # 5. složka pbs_outputs pro uložení výstupů z PBS (logy, chyby)
+        # !! Uprav PBS -J pro počet barcode (např. -J 1-24 pro 24 barcodů)
 
         # pozn.: pokud chci sledovat metylaci, musím odstranit # před --modified-bases-models a použít model s metylací 
         #        (dna_r10.4.1_e8.2_400bps_sup@v5.0.0_5mC_5hmC@v1) v 1. NASTAVENÍ UŽIVATELE (UPRAV POUZE TUTO ČÁST).
@@ -41,6 +40,7 @@
 # =============================================================================
 # 0. KONTROLA VSTUPNÍCH PROMĚNNÝCH
 # =============================================================================
+mkdir -p "pbs_outputs"
 
 set -euo pipefail   # přísnější režim pro lepší detekci chyb, -e: skript se zastaví při jakékoliv chybě, -u: chyba při použití nedefinované proměnné, -o pipefail: chyba v jakékoliv části pipy způsobí selhání celé pipy
 
@@ -64,9 +64,9 @@ BARCODE=$(printf "barcode%02d" "$PBS_ARRAY_INDEX")  # vytvoří název barcode01
 # Základní adresář, kde běží má analýza a mám zde uložena data
 # ÚPRAVA: TVUJ_LOGIN (můj osobní login na metacentru), praha1 (cluster, kde běží analýza a mám data)
 BASE_DIR="/storage/brno12-cerit/home/petraskkar"
+WORK_DIR="$BASE_DIR/basecalling"
 
 # Vstupní data (.pod5)
-WORK_DIR="$BASE_DIR/basecalling"
 INPUT_ROOT="$BASE_DIR/${RUN_NUMBER}_pod5_pass"
 INPUT_DIR="$INPUT_ROOT/$BARCODE"
 
@@ -89,8 +89,9 @@ METYLACE=""
 # Pokud metylaci CHCEŠ, odkomentuj tento řádek (smaž # a mezeru na začátku řádku):
 # METYLACE="--modified-bases-models dna_r10.4.1_e8.2_400bps_sup@v5.2.0_5mC_5hmC@v1"
 
-mkdir -p "$RUN_LOG_DIR"
+mkdir -p "$OUTPUT_ROOT"
 mkdir -p "$RUN_OUTPUT_DIR"
+mkdir -p "$RUN_LOG_DIR"
 
 # =============================================================================
 # 2. KONTROLA VSTUPNÍCH DAT A PROSTŘEDÍ
@@ -141,7 +142,7 @@ TMP_FASTQ_GZ="$SCRATCHDIR/${RUN_NUMBER}_${BARCODE}.fastq.gz"    # dočasný gzip
     echo "Vstup: $INPUT_DIR"
     echo "Výstup: $FINAL_OUTPUT_DIR"
     echo "Array index: $PBS_ARRAY_INDEX"
-} | tee "$JOB_LOG"
+} | tee -a "$JOB_LOG"
 
 {
     echo "------------------------------------------------------------------"
@@ -153,12 +154,13 @@ TMP_FASTQ_GZ="$SCRATCHDIR/${RUN_NUMBER}_${BARCODE}.fastq.gz"    # dočasný gzip
 
 echo "[1/4] Kontrola GPU" | tee -a "$JOB_LOG"
 nvidia-smi | tee -a "$JOB_LOG"
-
-echo "[2/4] Basecalling pro $BARCODE" | tee -a "$JOB_LOG"
+# nvidia-smi zobrazuje informace o GPU, včetně využití, teploty a běžících procesech. Je to užitečné pro ověření, že GPU je dostupné a připravené pro výpočet.
 
 # =============================================================================
 # 4. BASECALLING (DORADO)
 # =============================================================================
+
+echo "[2/4] Basecalling pro $BARCODE" | tee -a "$JOB_LOG"
 
 BASECALL_CMD=(
     "$DORADO_BIN" basecaller
@@ -217,8 +219,8 @@ if [ -f "$FINAL_OUTPUT_DIR/$(basename "$TMP_FASTQ_GZ")" ] && [ -f "$FINAL_OUTPUT
         echo "Výsledný soubor: $FINAL_OUTPUT_DIR/$(basename "$TMP_FASTQ_GZ")"
         echo "Kopírování úspěšné. Mažu scratch."
     } | tee -a "$FINAL_OUTPUT_DIR/basecall_info.txt"
-    clean_scratch!
+    clean_scratch
 else
-    echo "Chyba: kopírování výsledků selhalo, data zůstávají ve scratchi." | tee -a "$JOB_LOG" >&2
+    echo "Chyba: kopírování výsledků selhalo, data zůstávají ve scratchi." | tee -a "$FINAL_OUTPUT_DIR/basecall_info.txt" >&2
     exit 1
 fi
