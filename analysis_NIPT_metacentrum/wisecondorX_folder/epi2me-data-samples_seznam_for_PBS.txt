@@ -1,0 +1,6 @@
+find "$PWD" -type f -name "*.bam" | awk -F/ '{
+    bam_path = $0;
+    barcode = $(NF-1); # V EPI2ME je název barkódu obvykle předposlední část cesty
+    run_num = "epi2me_run1"; # Tady si dynamicky pojmenuj svůj run
+    print barcode " " bam_path " " run_num
+}' > /storage/praha1/home/TVUJ_LOGIN/wisecondorX/samples_seznam_wisecondorx.txt

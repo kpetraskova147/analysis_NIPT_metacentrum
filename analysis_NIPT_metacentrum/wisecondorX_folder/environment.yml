@@ -1,0 +1,19 @@
+name: wisecondorX_env
+channels:           # "obchod", odkud se stahují balíčky knihoven
+  - conda-forge     # Největší výběr, nejčerstvější verze knihoven pro data science.
+  - bioconda        # Obsahuje specializovaný vědecký software pro analýzu sekvencí, proteinů atd.
+  - defaults        # Základní balíčky přímo od Anacondy, občas starší verze, ale stabilní.
+dependencies:
+  - python=3.10  # Vybrána stabilní verze > 3.6
+  - scipy=1.13.0
+  - scikit-learn=1.4.2
+  - pysam=0.22.0
+  - numpy=1.26.4
+  - matplotlib=3.8.4
+  - pandas=2.2.2
+  - pip
+  - pip:
+    - wisecondorx  # Instalace samotného nástroje přes pip, pokud není v condě
+
+
+
