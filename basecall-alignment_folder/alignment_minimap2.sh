@@ -82,7 +82,7 @@ FASTQ_FILE=".fastq.gz"
 # Umístění vstupních dat - FASTQ soubory (výsledek z Dorada)
 INPUT_DIR="$BASE_DIR/RESULTS/basecall_results"
 RUN_INPUT_DIR="$INPUT_DIR/basecall_output_${RUN_NUMBER}"
-INPUT_FILE="$RUN_INPUT_DIR/$BARCODE"
+INPUT_FILE="$RUN_INPUT_DIR/$BARCODE/${BARCODE}${FASTQ_FILE}"   # cesta ke konkrétnímu FASTQ souboru pro tento barcode
 
 # Umístění referenčního genomu (FASTA soubor)
 REF_GENOME="$BASE_DIR/alignment/reference_genomes_Hg38/hg38.mmi"   # indexovaný referenční genom pro minimap2
