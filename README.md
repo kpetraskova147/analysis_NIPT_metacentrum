@@ -81,6 +81,12 @@ Příkaz (číslo runu se samozřejmě mění):
 
         qsub -v RUN_NUMBER="run1" alignment_minimap2.sh
 
+Po doběhnutí analýzy alignment:
+Příkaz:
+
+        qsub -v RUN_NUMBER="run1" statistics_alignment.sh
+
+
 #### Kontrola kvality (MultiQC):
 Po doběhnutí analýzy mohu spustit MultiQC pro přehled všech vzorků
 - MultiQC se podívá do všech podsložek, najde tam mosdepth summary a nanostat a vytvoří přehledný report s grafy pro všechny vzorky v jednom souboru (multiqc_report.html)
