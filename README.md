@@ -8,6 +8,12 @@ IMPORTANT: PBS -J settings.
         Dorado, Minimap2 and WisecondorX is counting files and folders from 1
                 - PBS -J 1-24 for 24 samples
 
+        Pokud terminál napíše "qsub: script contains cr, lf" po zadání příkazu qsub ... (spuštění analýzy), zadám:
+
+                dos2unix skript_name
+
+        - musím přepsat kód z windowsu do linuxového prostředí (jiné konce řádků)
+
 ## NANOPORE NIPT PIPELINE – ULTIMÁTNÍ CHEAT SHEET
 ### FÁZE 1: Dorado (Basecalling)
 Cíl: Převod surových signálů .pod5 na čtení .fastq.

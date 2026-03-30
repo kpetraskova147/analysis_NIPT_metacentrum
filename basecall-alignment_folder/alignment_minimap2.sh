@@ -82,17 +82,17 @@ FASTQ_FILE=".fastq.gz"
 # Umístění vstupních dat - FASTQ soubory (výsledek z Dorada)
 INPUT_DIR="$BASE_DIR/RESULTS/basecall_results"
 RUN_INPUT_DIR="$INPUT_DIR/basecall_output_${RUN_NUMBER}"
-INPUT_FILE="$RUN_INPUT_DIR/$BARCODE/${BARCODE}${FASTQ_FILE}"   # cesta ke konkrétnímu FASTQ souboru pro tento barcode
+INPUT_FILE="$RUN_INPUT_DIR/$BARCODE/${RUN_NUMBER}_${BARCODE}${FASTQ_FILE}"   # cesta ke konkrétnímu FASTQ souboru pro tento barcode
 
 # Umístění referenčního genomu (FASTA soubor)
-REF_GENOME="$BASE_DIR/alignment/reference_genomes_Hg38/hg38.mmi"   # indexovaný referenční genom pro minimap2
+REF_GENOME="$BASE_DIR/alignment/reference_genome_Hg38/hg38.mmi"   # indexovaný referenční genom pro minimap2
 # Kam uložit výsledky ze statistiky
-BAM_OUTPUT_DIR="$BASE_DIR/RESULTS/alignment"
+BAM_OUTPUT_DIR="$BASE_DIR/RESULTS/alignment_results"
 RUN_bam_OUTPUT_DIR="$BAM_OUTPUT_DIR/alignment_output_${RUN_NUMBER}"
 FINAL_bam_OUTPUT_DIR="$RUN_bam_OUTPUT_DIR/$BARCODE"
 
 # Výsledky ze statistiky
-STATS_OUTPUT_DIR="$BASE_DIR/RESULTS/statistics"
+STATS_OUTPUT_DIR="$BASE_DIR/RESULTS/statistics_results"
 RUN_STATS_OUTPUT_DIR="$STATS_OUTPUT_DIR/statistics_output_${RUN_NUMBER}"
 FINAL_stats_OUTPUT_DIR="$RUN_STATS_OUTPUT_DIR/$BARCODE"
 
