@@ -3,7 +3,7 @@
 # PBS HLAVIČKA
 # =============================================================================
 #PBS -N Minimap2_and_Stats
-#PBS -l select=1:ncpus=32:mem=64gb:scratch_local=80gb
+#PBS -l select=1:ncpus=16:mem=64gb:scratch_local=80gb:os=debian11
 #PBS -l walltime=6:00:00
 #PBS -q default
 #PBS -j oe
@@ -130,7 +130,7 @@ if [ -z "${SCRATCHDIR:-}" ]; then
 fi
 
 # Čisté jméno vzorku (např. z 'cesta/barcode05.fastq' udělá 'barcode05')
-SAMPLE_NAME=$(basename "$INPUT_FILE" "$FASTQ_FILE")
+SAMPLE_NAME=$RUN_NUMBER"_"$BARCODE
 
 # =============================================================================
 # 3. PŘÍPRAVA PROSTŘEDÍ
@@ -255,16 +255,16 @@ mkdir -p $FINAL_bam_OUTPUT_DIR
 mkdir -p $FINAL_stats_OUTPUT_DIR
 
 # Kopírujeme BAM, BAI
-cp $TMP_BAM $FINAL_bam_OUTPUT_DIR/
-cp $TMP_BAM_BAI $FINAL_bam_OUTPUT_DIR/
+cp $TMP_BAM $FINAL_bam_OUTPUT_DIR/${SAMPLE_NAME}.bam
+cp $TMP_BAM_BAI $FINAL_bam_OUTPUT_DIR/${SAMPLE_NAME}.bam.bai
 
 # Kopírujeme statistiky pro fetální frakci (samtools)
-cp ${SAMPLE_NAME}_lengths.txt $FINAL_stats_OUTPUT_DIR/
-cp ${SAMPLE_NAME}_quality_coverage.txt $FINAL_stats_OUTPUT_DIR/
+cp ${SAMPLE_NAME}_lengths.txt $FINAL_stats_OUTPUT_DIR/lengths_${SAMPLE_NAME}.txt
+cp ${SAMPLE_NAME}_quality_coverage.txt $FINAL_stats_OUTPUT_DIR/quality_coverage_${SAMPLE_NAME}.txt
 
 # Kopírujeme obecné statistiky kvality (nanostat, mosdepth)
-cp "${SAMPLE_NAME}_nanostat.txt" $FINAL_stats_OUTPUT_DIR/
-cp "${SAMPLE_NAME}_coverage.mosdepth.summary.txt" $FINAL_stats_OUTPUT_DIR/
+cp "${SAMPLE_NAME}_nanostat.txt" $FINAL_stats_OUTPUT_DIR/nanostat_${SAMPLE_NAME}.txt
+cp "${SAMPLE_NAME}_coverage.mosdepth.summary.txt" $FINAL_stats_OUTPUT_DIR/coverage.mosdepth.summary_${SAMPLE_NAME}.txt
 
 # Kopírujeme logovací soubor pro tuto úlohu
 cp alignment_info.txt $FINAL_bam_OUTPUT_DIR/alignment_info.txt

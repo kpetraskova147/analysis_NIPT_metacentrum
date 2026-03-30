@@ -8,6 +8,7 @@ IMPORTANT: PBS -J settings.
         Dorado, Minimap2 and WisecondorX is counting files and folders from 1
                 - PBS -J 1-24 for 24 samples
 
+ERROR:
         Pokud terminál napíše "qsub: script contains cr, lf" po zadání příkazu qsub ... (spuštění analýzy), zadám:
 
                 dos2unix skript_name
@@ -47,8 +48,9 @@ Příkaz (číslo runu se samozřejmě mění):
 
         qsub -v RUN_NUMBER="run1" dorado_basecall.sh
 
-### FÁZE 2: Minimap2 (Alignment) + MultiQC
+### FÁZE 2: Minimap2 (Alignment) + statistics + MultiQC
 Cíl: Zarovnání .fastq na referenci a tvorba .bam / .bai souborů.
+Potřebuji spustit dva skripty pro alignment (only_alignment_minimap2.sh) a statistiku (statistics_alignment.sh). Na metacentru dělají aktualizaci a bohužel zatím nejde spustit pouze jeden skript "alignment_minimap2.sh", což doufám, že v budoucnu možné bude - je tam problém s tím, že ještě nepřesunuli úplně vše do nové verze.
 
 ##### INSTRUKCE
 Na storage: 
@@ -57,7 +59,7 @@ Na storage:
         - pokud spouštím tuto analýzu na data, u kterých nebylo spuštěno dorado, mohu upravit cestu a nahrát je jinam
 - vytvoř složku alignment a v ní:
   
-   - 1. skript: alignment_minimap2.sh
+   - 1. skript: only_alignment_minimap2.sh
    - 2. referenční genom: složka "reference_genome_Hg38" - soubor "hg38.mmi" (indexovaný genom)
 
          - genom musí být indexován, pokud chci, aby analýza probíhala rychleji
@@ -66,6 +68,8 @@ Na storage:
 
                                 module add minimap2
                                 minimap2 -x map-ont -d hg38.mmi hg38.analysisSet.fa
+
+   - 3. skript: statistics_alignment.sh - pro vytvoření statistiky pro délku fragmentů, kvality atd.
 
 - Nastavení: Uprav PBS -J pro počet barcode (např. -J 1-24 pro 24 barcodů)
            : Uprav cesty k datům v 1. NASTAVENÍ UŽIVATELE (UPRAV POUZE TUTO ČÁST), pokud jsou jiné
