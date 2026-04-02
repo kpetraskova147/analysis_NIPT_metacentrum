@@ -3,7 +3,7 @@
 # PBS HLAVIČKA - Nastavení zdrojů pro PromethION
 # =============================================================================
 #PBS -N Dorado_Basecall
-#PBS -l select=1:ncpus=250:mem=64gb:ngpus=1:scratch_local=800gb
+#PBS -l select=1:ncpus=4:ngpus=1:mem=50gb:scratch_local=2500gb:gpu_mem=40gb
 #PBS -l walltime=24:00:00
 #PBS -q gpu
 #PBS -j oe
@@ -52,11 +52,11 @@ OUTPUT_DIR="$BASE_DIR/RESULTS/basecall_results"
 FINAL_OUTPUT_DIR="$OUTPUT_DIR/basecall_output_${RUN_NUMBER}"
 
 # Cesta k softwaru Dorado
-DORADO_BIN="$BASE_DIR/basecalling/dorado-1.0.0-linux-x64/models/dorado"
+DORADO_BIN="$BASE_DIR/basecalling/dorado-1.0.0-linux-x64/bin/dorado"
 
 # Úložiště pro centrální logovací soubor - záznam o průběhu spuštěných úloh, uzlech a datech všech již projetých souborů.
-mkdir -p "$BASE_DIR/run_logs"           # vytvoříme složku pro logy, pokud neexistuje
-CENTRAL_LOG="$BASE_DIR/run_logs/basecall_history.txt"
+mkdir -p "$BASE_DIR//basecalling/run_logs"           # vytvoříme složku pro logy, pokud neexistuje
+CENTRAL_LOG="$BASE_DIR/basecalling/run_logs/demultiplex_basecall_history.txt"
 
 # Model: Pro PromethION R10.4.1 používám SUP (super accuracy) basecalling.
 MODEL="dna_r10.4.1_e8.2_400bps_sup@v5.2.0"
@@ -85,8 +85,9 @@ METYLACE=""
 # Kontrola existence scratche (dočasné virtuální úložiště)
 test -n "$SCRATCHDIR" || { echo >&2 "Chyba: SCRATCHDIR není nastaven!"; exit 1; }   # exit 1 = chrání má data v domovském adresáři před nechtěným smazáním.
 
-# Přechod do scratche, pokud selže, skript se ukončí s chybou (bezpečnost)
+# Přechod do scratche a kopírování souborů
 cd $SCRATCHDIR || { echo >&2 "Chyba: Nepodařilo se vstoupit do SCRATCHDIR"; exit 2; }
+scp -r storage-brno12-cerit.metacentrum.cz:$INPUT_POD5_DIR $SCRATCHDIR/
 
 # Logování pro kontrolu - logovací soubor bude obsahovat informace o spuštění úlohy, uzlu a cestě ke scratchi
 # 1. Centrální logovací soubor pro všechny úlohy v hlavní složce
@@ -111,9 +112,10 @@ echo "[2/3] Spouštím Dorado Basecaller..." | tee -a basecall_info.txt
 # Pokud chceš zapnout metylaci, odmaž znak '#' na začátku řádku --modified-bases
 # Výstup jde rovnou do fastq souboru.
 
+# INPUT_POD5_DIR v Doradu nahraďte lokální cestou ve scratchi
 $DORADO_BIN basecaller \
 $MODEL \
-"$INPUT_POD5_DIR" \
+"$SCRATCHDIR/${RUN_NUMBER}_pod5_pass" \
 --recursive \
 --min-qscore 9 \
 $KIT_NAME \

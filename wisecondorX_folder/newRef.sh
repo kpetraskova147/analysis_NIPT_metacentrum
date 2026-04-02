@@ -1,5 +1,16 @@
 #!/bin/bash
 # ==============================================================================
+# PBS PARAMETRY (Nezbytné pro Metacentrum!)
+# ==============================================================================
+#PBS -N WisecondorX_NewRef
+#PBS -l select=1:ncpus=8:mem=32gb:scratch_local=50gb
+#PBS -l walltime=12:00:00
+#PBS -m ae
+#PBS -M petraskkar@natur.cuni.cz
+#PBS -o /storage/brno12-cerit/home/petraskkar/wisecondorX/run_logs/
+#PBS -e /storage/brno12-cerit/home/petraskkar/wisecondorX/run_logs/
+
+# ==============================================================================
 # Skript pro vytvoření referenčního souboru pro WisecondorX
 # ==============================================================================
 # INSTRUKCE:
@@ -15,61 +26,97 @@
             # qsub newRef.sh
 
 # ==============================================================================
-# 1. KONFIGURACE CONDA PROSTŘEDÍ
+# 1. ZÁKLADNÍ NASTAVENÍ A KONTROLA
 # ==============================================================================
+set -euo pipefail
 
-# Uprav cestu k tvému storage
-WORK_DIR="/storage/brno12-cerit/home/petraskkar/wisecondorX"
-cd "$WORK_DIR"
+BASE_DIR="/storage/brno12-cerit/home/petraskkar"
 
-module load conda
+INPUT_DIR="${BASE_DIR}/ALL_NPZ"
+OUTPUT_DIR="${BASE_DIR}/wisecondorX"
+FINAL_OUTPUT_DIR="${OUTPUT_DIR}/references"
 
-# Kontrola, zda prostředí existuje. Pokud ne, musím ho instalovat z environment.yml
-if ! conda info --envs | grep -q "wisecondorX_env"; then
-    echo "--- Prostředí wisecondorX_env nebylo nalezeno. Probíhá instalace. ---"
-    conda install --file environment.yml
-else
-    echo "--- Prostředí wisecondorX_env již existuje. Aktivace. ---"
+# Nastavení rozlišení reference (velikost binů v kb)
+# Pro WisecondorX se běžně používají hodnoty jako 1000 (1 Mb), 500 (500 kb), 100 (100 kb) atd.
+# 100 kb mi vezme fragmenty o velikosti 100 kb - velmi jemné rozlišení, těžší na výsledky, ale může odhalit i menší změny.
+# 500 kb je kompromis mezi citlivostí a stabilitou výsledků.
+# 1000 kb je pro detekci aneuploidií často dostačující, ale pro jemnější analýzy může být vhodné použít menší biny.
+REF_SIZES="1000 500 100"  # Můžeš přidat další hodnoty, pokud chceš více referencí s různými rozlišeními
+
+CORES=8         # cores = cpus
+DNESNI_DATUM=$(date +%Y-%m-%d)
+
+mkdir -p "${FINAL_OUTPUT_DIR}"
+
+if [ -z "${SCRATCHDIR:-}" ]; then
+    echo "CHYBA: SCRATCHDIR není nastaven!" >&2
+    exit 1
 fi
 
-conda activate wisecondorX_env
-echo "--- Prostředí wisecondorX_env aktivováno. ---"
+# ==============================================================================
+# 2. PŘESUN DO SCRATCHE A PŘÍPRAVA DAT
+# ==============================================================================
+echo "--- Start tvorby reference: $(date) ---"
+cd "$SCRATCHDIR"
+
+echo "Kopíruji vstupní NPZ soubory kontrol na scratch..."
+# Nakopírujeme všechny .npz zdravých jedinců na rychlý lokální disk
+cp "${INPUT_DIR}"/*.npz .
 
 # ==============================================================================
-# 2. PARAMETRY ANALÝZY
+# 3. AKTIVACE PROSTŘEDÍ
 # ==============================================================================
-CORES=8
-INPUT_DIR="${WORK_DIR}/ALL_NPZ"
-OUTPUT_DIR="${WORK_DIR}/references"
-REF_SIZES="1000 500 200 100"    # Velikosti binů v kb
-# cores = cpus
 
-# Vytvoření výstupní složky, pokud neexistuje
-mkdir -p "${OUTPUT_DIR}"
+module load mambaforge
+
+set +u
+
+# Kontrola, zda prostředí existuje. Pokud ne, upozorni a zastav skript.
+if ! mamba info --envs | grep -q "wisecondorX_env"; then
+    echo "CHYBA: Prostředí wisecondorX_env nebylo nalezeno. Nainstaluj:" >&2
+    echo "mamba env create --file environment.yml" >&2
+    exit 1
+else
+    echo "--- Prostředí wisecondorX_env nalezeno. Aktivuji... ---"
+fi
+
+if source activate "wisecondorX_env"; then
+    echo "--- Prostředí wisecondorX_env úspěšně aktivováno. ---"
+else
+    echo "CHYBA: Prostředí wisecondorX_env nelze aktivovat!" >&2
+    exit 1
+fi
+
+set -u
 
 # ==============================================================================
-# 3. VLASTNÍ VÝPOČET (SMYČKA)
+# 4. VLASTNÍ VÝPOČET (SMYČKA)
 # ==============================================================================
-DNESNI_DATUM=$(date +%Y-%m-%d)
-for REF in ${REF_SIZES}
-do
+# Generujeme reference pro různé binsizes z dat na scratchi
+
+for REF in ${REF_SIZES}; do
     echo "------------------------------------------------------------------"
     echo "Dne $DNESNI_DATUM vytvářím referenci pro rozlišení: ${REF} kb"
     echo "------------------------------------------------------------------"
-
-    # Spuštění WisecondorX
-    # "${INPUT_DIR}"/*.npz vezme všechny .npz soubory v dané složce
-    WisecondorX newref "${INPUT_DIR}"/*.npz \
-        "${OUTPUT_DIR}/reference_${REF}kb_${DNESNI_DATUM}.npz" \
+    
+    # Výsledek se nejdříve uloží na scratch
+    TMP_REF="reference_${REF}kb_${DNESNI_DATUM}.npz"
+    
+    # WisecondorX newref používá *.npz ze scratche
+    WisecondorX newref *.npz "${TMP_REF}" \
         --binsize ${REF}000 \
         --cpus ${CORES}
-
-    if [ $? -eq 0 ]; then
-        echo "Úspěšně vytvořeno: reference_${REF}kb_${DNESNI_DATUM}.npz"
+        
+    # Pokud vše klaplo, ihned to překopírujeme domů na storage
+    if [ -f "${TMP_REF}" ]; then
+        cp "${TMP_REF}" "${FINAL_OUTPUT_DIR}/"
+        echo "Úspěšně vytvořeno a zkopírováno: ${TMP_REF}"
     else
-        echo "Chyba při vytváření reference pro ${REF} kb!"
+        echo "CHYBA při vytváření reference pro ${REF} kb!" >&2
+        exit 1
     fi
 done
 
 echo "------------------------------------------------------------------"
-echo "Referenční soubor byl vytvořen a uložen do: ${OUTPUT_DIR} jako reference_${REF}kb_${DNESNI_DATUM}.npz"
+echo "Referenční soubor byl vytvořen a uložen do: ${FINAL_OUTPUT_DIR} jako reference_${REF}kb_${DNESNI_DATUM}.npz"
+clean_scratch

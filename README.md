@@ -79,9 +79,9 @@ Na storage:
 Terminál otevřít ve složce "alignment"
 Příkaz (číslo runu se samozřejmě mění):
 
-        qsub -v RUN_NUMBER="run1" alignment_minimap2.sh
+        qsub -v RUN_NUMBER="run1" only_alignment_minimap2.sh
 
-Po doběhnutí analýzy alignment:
+Po doběhnutí analýzy alignment spustit statistiku:
 Příkaz:
 
         qsub -v RUN_NUMBER="run1" statistics_alignment.sh
@@ -109,7 +109,12 @@ Na storage:
   - 1. skript: skript_wisecondorX.sh 
   - 2. prostředí: environment.yml - pro vytvoření prostředí s verzemi knihoven, které se nebudou měnit (dobrá kooperace, stálé prostředí)
 
-       - !! je třeba instalovat před spuštěním analýzy příkazem: conda install --file environment.yml
+       - !! je třeba instalovat před spuštěním analýzy příkazem: 
+
+                module add mambaforge
+
+                mamba env create -f environment.yml
+                
   - 3. reference - soubor "reference.npz"
   
        - referenci mohu vytvořit pomocí skriptu newRef.sh
