@@ -29,14 +29,14 @@
 # INSTRUKCE
 # =============================================================================
         # Vytvoř si složku alignment a v ní:
-        # 1. SKRIPT: 'alignment_HAC.sh'
+        # 1. SKRIPT: 'HAC-alignment.sh'
         # 2. REFERENČNÍ GENOM: hg38.mmi - např. hg38.analysisSet.fa (stažený z Ensemblu nebo UCSC, musí být indexovaný minimap2 - hg38.mmi - ke staženína gitHubu)
         # Nastavení: upravím cesty v 1. NASTAVENÍ UŽIVATELE (UPRAV POUZE TUTO ČÁST).
         #          : upravím PBS -J pro počet vzorků (1-24 = 24 vzorků), které chci zpracovat a mailovou adresu pro notifikace.
         #          : upravím PBS -o pro uložení výstupů z PBS do složky pbs_outputs
         #          : upravím PBS -M - mailová adresa pro zaslání mailu při ukončení nebo selhání úlohy (nastav svou mailovou adresu)
 
-        # Spuštění: qsub -v RUN_NUMBER="run1" alignment_HAC.sh
+        # Spuštění: qsub -v RUN_NUMBER="run1" HAC-alignment.sh
 
 # =============================================================================
 # 0. KONTROLA VSTUPNÍCH PROMĚNNÝCH
@@ -46,7 +46,7 @@ set -euo pipefail
 
 if [ -z "${RUN_NUMBER:-}" ]; then
     echo "Chyba: RUN_NUMBER není nastaven." >&2
-    echo "Spuštění: qsub -v RUN_NUMBER=run1 alignment_HAC.sh" >&2
+    echo "Spuštění: qsub -v RUN_NUMBER=run1 HAC-alignment.sh" >&2
     exit 1
 fi
 if [ -z "${PBS_ARRAY_INDEX:-}" ]; then
@@ -114,13 +114,13 @@ module add minimap2
 # 4. PŘESUN DO SCRATCHE, INFO DO LOGŮ
 # =============================================================================
 cd "$SCRATCHDIR"
-echo "[1/3] Slučuji všechny FASTQ soubory z barcodu do scratche..." > alignment_info.txt
+echo "[1/3] Slučuji všechny FASTQ soubory z barcodu do scratche..." > HAC-alignment_info.txt
 
 # Tento příkaz vezme všechny soubory a "vylije" je do jednoho
 cat "$INPUT_DIR"/*"$BARCODE"*"$FASTQ_FILE" > ./input.fastq.gz
 cp "$REF_GENOME" ./hg38.mmi
 
-JOB_LOG="$SCRATCHDIR/alignment_info.txt"
+JOB_LOG="$SCRATCHDIR/HAC-alignment_info.txt"
 TMP_BAM="$SCRATCHDIR/${RUN_NUMBER}_${BARCODE}.bam"              # dočasný BAM soubor ve scratchi
 TMP_BAM_BAI="$SCRATCHDIR/${RUN_NUMBER}_${BARCODE}.bam.bai"      # dočasný indexovaný BAM soubor ve scratchi
 

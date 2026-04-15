@@ -28,10 +28,10 @@
         # 3. reference - složka references - složka references_${DATUM} se soubory "reference_${REF_SIZE}kb.npz"
                 # referenci mohu vytvořit pomocí skriptu newRef.sh
         # 4. VOLITELNÉ: skript: uvod_kontrola.py - spíše pro mou kontrolu jestli mám vše připravené, nemusím spouštět
-        # Terminál otevři ve složce wisecondorx, kde máš uložen tento skript (skript_wisecondorX.sh) a další potřebné soubory (samples_seznam_wisecondorx.txt, reference.npz atd.).
+        # Terminál otevři ve složce wisecondorx, kde máš uložen tento skript (HAC-wisecondorX.sh)
 
 # Před spuštěním:
-    # 1. Ve složce wisecondorX musíš mít: skript_wisecondorX.sh, reference.npz, environment.yml (+ uvod_kontrola.py - VOLITELNÉ)
+    # 1. Ve složce wisecondorX musíš mít: HAC-wisecondorX.sh, reference_${DATUM}.npz, environment.yml (+ uvod_kontrola.py - VOLITELNÉ)
     # 2. Uprav PBS -M a PBS -J podle počtu vzorků a svého emailu.
     # 3. Uprav ve 3. kapitole: BASE_DIR, INPUT_BAM_BAI_DIR, OUTPUT_DIR a REFERENCE podle své struktury dat.
     # 4. Uprav absolutní cestu k prostředí v části 4. PŘÍPRAVA PROSTŘEDÍ, pokud se ti nedaří aktivovat prostředí podle jména.
@@ -41,7 +41,7 @@
 # Spuštění: 
     # 0. pouze jednou - instalace prostředí: conda install --file environment.yml
     # (1. python3 uvod_kontrola.py - VOLITELNÉ, kontrola vstupních dat navíc a jestli mám vše zadané)
-    # 2. qsub -v RUN_NUMBER="run1",DATUM="2026-03-26" skript_wisecondorX.sh
+    # 2. qsub -v RUN_NUMBER="run1",DATUM="2026-03-26" HAC-wisecondorX.sh
 
 # =============================================================================
 # 0. KONTROLA VSTUPNÍCH PROMĚNNÝCH
@@ -51,13 +51,13 @@ set -euo pipefail   # přísnější režim pro lepší detekci chyb, -e: skript
 
 if [ -z "${RUN_NUMBER:-}" ]; then
     echo "Chyba: RUN_NUMBER není nastaven." >&2
-    echo "Spuštění: qsub -v RUN_NUMBER=run1,DATUM=2026-03-26 skript_wisecondorX.sh" >&2
+    echo "Spuštění: qsub -v RUN_NUMBER=run1,DATUM=2026-03-26 HAC-wisecondorX.sh" >&2
     exit 1
 fi
 
 if [ -z "${DATUM:-}" ]; then
     echo "Chyba: DATUM není nastaveno." >&2
-    echo "Spuštění: qsub -v RUN_NUMBER=run1,DATUM="2026-03-26" skript_wisecondorX.sh" >&2
+    echo "Spuštění: qsub -v RUN_NUMBER=run1,DATUM="2026-03-26" HAC-wisecondorX.sh" >&2
     exit 1
 fi
 
@@ -94,11 +94,11 @@ OUTPUT_DIR="$BASE_DIR/RESULTS/HAC-wisecondorX_results"
 RUN_OUTPUT_DIR="$OUTPUT_DIR/HAC-wisecondorX_output_${RUN_NUMBER}"
 FINAL_OUTPUT_DIR="$RUN_OUTPUT_DIR/${RUN_NUMBER}-HAC_${BARCODE}"
 # Uložení všech NPZ souborů do složky ALL_NPZ pro případné vytvoření nové reference
-NPZ_OUTPUT_DIR="$WORK_DIR/ALL_NPZ"
+NPZ_OUTPUT_DIR="$WORK_DIR/HAC-ALL_NPZ"
 
 # Logy
-RUN_LOG_DIR="$WORK_DIR/run_logs"
-CENTRAL_LOG="$RUN_LOG_DIR/wisecondorX_history.txt"
+RUN_LOG_DIR="$WORK_DIR/HAC-run_logs"
+CENTRAL_LOG="$RUN_LOG_DIR/HAC-wisecondorX_history.txt"
 
 mkdir -p "$OUTPUT_DIR"
 mkdir -p "$RUN_OUTPUT_DIR"
@@ -132,7 +132,7 @@ done
 
 cd "$SCRATCHDIR"
 
-JOB_LOG="$SCRATCHDIR/wisecondorX_info.txt"
+JOB_LOG="$SCRATCHDIR/HAC-wisecondorX_info.txt"
 
 {
     echo "------------------------------------------------------------------"
@@ -200,28 +200,6 @@ TMP_NPZ="${RUN_NUMBER}_${BARCODE}.npz"          # dočasný NPZ soubor ve scratc
 echo "Krok 1: Convert BAM to NPZ pro ${BARCODE}" | tee -a "$JOB_LOG"
 WisecondorX convert "./${LOCAL_BAM}" "./${TMP_BASE}"
 
-sync && sleep 5     # krátká pauza pro jistotu, že se všechny soubory správně zapíší na disk před pokračováním
-
-# VAKCÍNA PROTI CHYBĚ - problém s názvy - predict očekává něco jiného (samples) než vyplivne convert (reads_per_bin)
-echo "Aplikuji opravnou vakcínu na .npz soubor..." | tee -a "$JOB_LOG"
-python3 -c "
-import numpy as np
-f = './${TMP_NPZ}'
-try:
-    with np.load(f, allow_pickle=True) as data_file:
-        data = dict(data_file)
-    # WisecondorX ukládá data jako 'reads_per_bin', ale Predict hledá 'sample'
-    if 'sample' not in data and 'reads_per_bin' in data:
-        data['sample'] = data['reads_per_bin']
-        np.savez(f, **data)
-        print('Vakcína úspěšná: Ošálili jsme WisecondorX, šuplíček \"sample\" byl doplněn!')
-    else:
-        print('Vakcína nebyla potřeba.')
-except Exception as e:
-    print('Chyba při aplikaci vakcíny:', e)
-" | tee -a "$JOB_LOG"
-# ------------------------------------------
-
 # KROK 2: Predict
 echo "Krok 2: Predict pro ${BARCODE}" | tee -a "$JOB_LOG"
 
@@ -229,7 +207,7 @@ for REF_SIZE in ${REF_SIZES}; do
     echo "--- Počítám rozlišení: ${REF_SIZE} kb ---" | tee -a "$JOB_LOG"
     
     CURRENT_REF="reference_${REF_SIZE}kb.npz"
-    OUT_PLOTS_DIR="plots_${REF_SIZE}kb"
+    OUT_PLOTS_DIR="plots-HAC_${REF_SIZE}kb"
     mkdir -p "$OUT_PLOTS_DIR"
     PREFIX="${OUT_PLOTS_DIR}/${RUN_NUMBER}_${BARCODE}_${REF_SIZE}kb"
     # Výsledek bude např. plots_1000kb/run1_barcode05_1000kb
@@ -253,7 +231,7 @@ mkdir -p "$FINAL_OUTPUT_DIR"
 
 # Zkopíruje všechny tři složky s grafy do složky pro tento vzorek
 cp -r plots_* "$FINAL_OUTPUT_DIR/"
-cp "$JOB_LOG" "$FINAL_OUTPUT_DIR/wisecondorX_info.txt"
+cp "$JOB_LOG" "$FINAL_OUTPUT_DIR/HAC-wisecondorX_info.txt"
 
 # Záloha původního konvertovaného .npz do složky ALL_NPZ pro případné vytvoření nové reference
 cp "$TMP_NPZ" "$NPZ_OUTPUT_DIR/"
@@ -265,18 +243,18 @@ KOPIROVANI_OK=true
 
 for REF_SIZE in ${REF_SIZES}; do
     # Zkontrolujeme existenci hlavního výsledkového souboru .bed v dané podsložce na storage
-    if [ ! -s "$FINAL_OUTPUT_DIR/plots_${REF_SIZE}kb/${RUN_NUMBER}_${BARCODE}_${REF_SIZE}kb_aberrations.bed" ]; then
+    if [ ! -s "$FINAL_OUTPUT_DIR/plots-HAC_${REF_SIZE}kb/${RUN_NUMBER}-HAC_${BARCODE}_${REF_SIZE}kb_aberrations.bed" ]; then
         KOPIROVANI_OK=false
     fi
 done
 
-if [ "$KOPIROVANI_OK" = true ] && [ -f "$FINAL_OUTPUT_DIR/wisecondorX_info.txt" ]; then
+if [ "$KOPIROVANI_OK" = true ] && [ -f "$FINAL_OUTPUT_DIR/HAC-wisecondorX_info.txt" ]; then
     {
         echo "Hotovo: $RUN_NUMBER / $BARCODE dne: $(date +%Y-%m-%d)"
         echo "Kopírování všech rozlišení úspěšné. Mažu scratch."
-    } | tee -a "$FINAL_OUTPUT_DIR/wisecondorX_info.txt"
+    } | tee -a "$FINAL_OUTPUT_DIR/HAC-wisecondorX_info.txt"
     clean_scratch
 else
-    echo "Chyba: Některé výsledky chybí, kopírování selhalo. Data zůstávají ve scratchi." | tee -a "$FINAL_OUTPUT_DIR/wisecondorX_info.txt" >&2
+    echo "Chyba: Některé výsledky chybí, kopírování selhalo. Data zůstávají ve scratchi." | tee -a "$FINAL_OUTPUT_DIR/HAC-wisecondorX_info.txt" >&2
     exit 1
 fi

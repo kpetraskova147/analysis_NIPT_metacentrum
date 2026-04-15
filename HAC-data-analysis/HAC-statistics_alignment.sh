@@ -47,7 +47,7 @@ set -euo pipefail
 
 if [ -z "${RUN_NUMBER:-}" ]; then
     echo "Chyba: RUN_NUMBER není nastaven." >&2
-    echo "Spuštění: qsub -v RUN_NUMBER=run1 statistics_alignment.sh" >&2
+    echo "Spuštění: qsub -v RUN_NUMBER=run1 HAC-statistics_alignment.sh" >&2
     exit 1
 fi
 if [ -z "${PBS_ARRAY_INDEX:-}" ]; then
@@ -62,7 +62,7 @@ BARCODE=$(printf "barcode%02d" "$PBS_ARRAY_INDEX")
 # =============================================================================
 BASE_DIR="/storage/brno12-cerit/home/petraskkar"
 
-mkdir -p "$BASE_DIR/alignment/pbs_outputs_statistics"
+mkdir -p "$BASE_DIR/alignment/HAC-pbs_outputs_statistics"
 
 # Vstup nyní bere z minulé složky alignmentu (BAM soubory)
 BAM_INPUT_DIR="$BASE_DIR/RESULTS/HAC-alignment_results/HAC-alignment_output_${RUN_NUMBER}/${RUN_NUMBER}-HAC_${BARCODE}"
@@ -74,8 +74,8 @@ STATS_OUTPUT_DIR="$BASE_DIR/RESULTS/HAC-statistics_results"
 RUN_STATS_OUTPUT_DIR="$STATS_OUTPUT_DIR/HAC-statistics_output_${RUN_NUMBER}"
 FINAL_stats_OUTPUT_DIR="$RUN_STATS_OUTPUT_DIR/${RUN_NUMBER}-HAC_${BARCODE}"
 
-LOG_DIR="$BASE_DIR/alignment/run_logs_statistics"
-CENTRAL_LOG="$LOG_DIR/alignment_statistics_history.txt"
+LOG_DIR="$BASE_DIR/alignment/HAC-run_logs_statistics"
+CENTRAL_LOG="$LOG_DIR/HAC-alignment_statistics_history.txt"
 
 mkdir -p "$LOG_DIR" 
 mkdir -p "$STATS_OUTPUT_DIR" 
@@ -119,7 +119,7 @@ mamba create -y -n temp_stats_env_${PBS_JOBID} -c bioconda nanostat mosdepth
 # 4. PŘESUN DO SCRATCHE
 # =============================================================================
 cd "$SCRATCHDIR"
-JOB_LOG="$SCRATCHDIR/statistics_alignment_info.txt"
+JOB_LOG="$SCRATCHDIR/HAC-statistics_alignment_info.txt"
 echo "[1/3] Kopíruji BAM a BAI do scratche..." > "$JOB_LOG"
 
 cp "$INPUT_BAM" ./
@@ -206,14 +206,14 @@ echo "[3/3] Kopíruji výsledky do $FINAL_stats_OUTPUT_DIR..." | tee -a "$JOB_LO
 
 mkdir -p "$FINAL_stats_OUTPUT_DIR"
 
-cp ${SAMPLE_NAME}_lengths.txt "$FINAL_stats_OUTPUT_DIR/lengths_${SAMPLE_NAME}.txt"
-cp ${SAMPLE_NAME}_quality_coverage.txt "$FINAL_stats_OUTPUT_DIR/quality_coverage_${SAMPLE_NAME}.txt"
-cp ${SAMPLE_NAME}_nanostat.txt "$FINAL_stats_OUTPUT_DIR/nanostat_${SAMPLE_NAME}.txt"
-cp ${SAMPLE_NAME}_coverage.mosdepth.summary.txt "$FINAL_stats_OUTPUT_DIR/coverage.mosdepth.summary_${SAMPLE_NAME}.txt"
+cp ${SAMPLE_NAME}_lengths.txt "$FINAL_stats_OUTPUT_DIR/lengths-HAC_${SAMPLE_NAME}.txt"
+cp ${SAMPLE_NAME}_quality_coverage.txt "$FINAL_stats_OUTPUT_DIR/quality_coverage-HAC_${SAMPLE_NAME}.txt"
+cp ${SAMPLE_NAME}_nanostat.txt "$FINAL_stats_OUTPUT_DIR/nanostat-HAC_${SAMPLE_NAME}.txt"
+cp ${SAMPLE_NAME}_coverage.mosdepth.summary.txt "$FINAL_stats_OUTPUT_DIR/coverage.mosdepth.summary-HAC_${SAMPLE_NAME}.txt"
 cp $JOB_LOG "$FINAL_stats_OUTPUT_DIR/"
 
 echo "Mažu dočasné Mamba prostředí..."
 conda env remove -y -n temp_stats_env_${PBS_JOBID}
 
-echo "ÚSPĚCH STATISTIKY: HOTOVO!" | tee -a "$FINAL_stats_OUTPUT_DIR/statistics_alignment_info.txt"
+echo "ÚSPĚCH STATISTIKY: HOTOVO!" | tee -a "$FINAL_stats_OUTPUT_DIR/HAC-statistics_alignment_info.txt"
 clean_scratch
