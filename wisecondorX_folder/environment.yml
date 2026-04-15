@@ -11,6 +11,13 @@ dependencies:
   - matplotlib
   - pandas
   - scipy
+  - r-base
+  - bioconductor-dnacopy
+  - r-jsonlite
+  - r-optparse
   - pip
   - pip:
-    - git+https://github.com/CenterForMedicalGeneticsGhent/WisecondorX.git
+    - typer
+
+# stažení staré verze WisecondorX, kde je ještě Rko a funkční CBS, protože novější verze už CBS neobsahuje a Rko je potřeba pro funkci CBS
+# PROBLÉM: CBS je potřeba pro vytvoření grafů - je možné, že v budoucnu bude stačit pouze Python (aktuálně na tom pracují)

@@ -7,8 +7,8 @@
 #PBS -l walltime=12:00:00
 #PBS -m ae
 #PBS -M petraskkar@natur.cuni.cz
+
 #PBS -o /storage/brno12-cerit/home/petraskkar/wisecondorX/run_logs/
-#PBS -e /storage/brno12-cerit/home/petraskkar/wisecondorX/run_logs/
 
 # ==============================================================================
 # Skript pro vytvoření referenčního souboru pro WisecondorX
@@ -19,22 +19,26 @@
         # 2. složka "ALL_NPZ" s npz soubory pro vytvoření reference 
         # (do této složky se průběžně přidávají všechny npz soubory ze spuštěných runů 
         # je nutná manuální selekce zdravých jedinců)
-        # Výstup: uloží se do složky "references" jako reference_1000kb_[DATUM].npz
-        # pro použití je potřeba ji přesunout do wisecondorX složky a přejmenovat na reference.npz 
-        # (+ si napsat někam poznámku o původním názvu)
+        
+        # Výstup: uloží se do složky "references", složky reference_$DATUM jako reference_${REF_SIZ}kb.npz (reference_1000kb.npz, reference_500kb.npz, reference_100kb.npz)
         # Spuštění: terminál ve složce wisecondorX
             # qsub newRef.sh
 
 # ==============================================================================
 # 1. ZÁKLADNÍ NASTAVENÍ A KONTROLA
 # ==============================================================================
+
+mkdir -p /storage/brno12-cerit/home/petraskkar/wisecondorX/run_logs
+
 set -euo pipefail
+DATUM=$(date +%Y-%m-%d)
+CORES=8         # cores = cpus
 
 BASE_DIR="/storage/brno12-cerit/home/petraskkar"
 
 INPUT_DIR="${BASE_DIR}/ALL_NPZ"
-OUTPUT_DIR="${BASE_DIR}/wisecondorX"
-FINAL_OUTPUT_DIR="${OUTPUT_DIR}/references"
+OUTPUT_DIR="${BASE_DIR}/wisecondorX/references"
+FINAL_OUTPUT_DIR="${OUTPUT_DIR}/reference_${DATUM}"
 
 # Nastavení rozlišení reference (velikost binů v kb)
 # Pro WisecondorX se běžně používají hodnoty jako 1000 (1 Mb), 500 (500 kb), 100 (100 kb) atd.
@@ -42,9 +46,6 @@ FINAL_OUTPUT_DIR="${OUTPUT_DIR}/references"
 # 500 kb je kompromis mezi citlivostí a stabilitou výsledků.
 # 1000 kb je pro detekci aneuploidií často dostačující, ale pro jemnější analýzy může být vhodné použít menší biny.
 REF_SIZES="1000 500 100"  # Můžeš přidat další hodnoty, pokud chceš více referencí s různými rozlišeními
-
-CORES=8         # cores = cpus
-DNESNI_DATUM=$(date +%Y-%m-%d)
 
 mkdir -p "${FINAL_OUTPUT_DIR}"
 
@@ -56,7 +57,7 @@ fi
 # ==============================================================================
 # 2. PŘESUN DO SCRATCHE A PŘÍPRAVA DAT
 # ==============================================================================
-echo "--- Start tvorby reference: $(date) ---"
+echo "--- Start tvorby reference: ${DATUM} ---"
 cd "$SCRATCHDIR"
 
 echo "Kopíruji vstupní NPZ soubory kontrol na scratch..."
@@ -67,24 +68,26 @@ cp "${INPUT_DIR}"/*.npz .
 # 3. AKTIVACE PROSTŘEDÍ
 # ==============================================================================
 
+echo "Načítám mambaforge a inicializuji Conda prostředí..." | tee -a 
 module load mambaforge
+
+# Tato "magická" formulka je nutná pro běh Condy v neinteraktivních PBS skriptech
+eval "$(conda shell.bash hook)"
 
 set +u
 
-# Kontrola, zda prostředí existuje. Pokud ne, upozorni a zastav skript.
-if ! mamba info --envs | grep -q "wisecondorX_env"; then
-    echo "CHYBA: Prostředí wisecondorX_env nebylo nalezeno. Nainstaluj:" >&2
-    echo "mamba env create --file environment.yml" >&2
-    exit 1
-else
-    echo "--- Prostředí wisecondorX_env nalezeno. Aktivuji... ---"
-fi
-
-if source activate "wisecondorX_env"; then
+# Skript se pokusí aktivovat prostředí podle jména
+if conda activate wisecondorX_env; then
     echo "--- Prostředí wisecondorX_env úspěšně aktivováno. ---"
 else
-    echo "CHYBA: Prostředí wisecondorX_env nelze aktivovat!" >&2
-    exit 1
+    echo "Prostředí nebylo nalezeno podle jména. Zkouším absolutní cestu..."
+    # Záchranná brzda: použití absolutní cesty, kam se prostředí fyzicky nainstalovalo
+    if conda activate /auto/brno2/home/petraskkar/.conda/envs/wisecondorX_env; then
+        echo "--- Prostředí úspěšně aktivováno pomocí absolutní cesty. ---"
+    else
+        echo "KRITICKÁ CHYBA: Prostředí se nepodařilo aktivovat ani absolutní cestou!" >&2
+        exit 1
+    fi
 fi
 
 set -u
@@ -94,15 +97,17 @@ set -u
 # ==============================================================================
 # Generujeme reference pro různé binsizes z dat na scratchi
 
+mkdir -p tmp_out
+
 for REF in ${REF_SIZES}; do
     echo "------------------------------------------------------------------"
-    echo "Dne $DNESNI_DATUM vytvářím referenci pro rozlišení: ${REF} kb"
+    echo "Dne $DATUM vytvářím referenci pro rozlišení: ${REF} kb"
     echo "------------------------------------------------------------------"
     
-    # Výsledek se nejdříve uloží na scratch
-    TMP_REF="reference_${REF}kb_${DNESNI_DATUM}.npz"
+    # Používáme ${REF}, ne ${REF_SIZES}. Ukládáme bezpečně bokem do tmp_out.
+    TMP_REF="tmp_out/reference_${REF}kb.npz"
     
-    # WisecondorX newref používá *.npz ze scratche
+    # WisecondorX newref používá *.npz ze scratche, ale výstup dává mimo dosah `*.npz`
     WisecondorX newref *.npz "${TMP_REF}" \
         --binsize ${REF}000 \
         --cpus ${CORES}
@@ -110,7 +115,7 @@ for REF in ${REF_SIZES}; do
     # Pokud vše klaplo, ihned to překopírujeme domů na storage
     if [ -f "${TMP_REF}" ]; then
         cp "${TMP_REF}" "${FINAL_OUTPUT_DIR}/"
-        echo "Úspěšně vytvořeno a zkopírováno: ${TMP_REF}"
+        echo "Úspěšně vytvořeno a zkopírováno: $(basename ${TMP_REF})"
     else
         echo "CHYBA při vytváření reference pro ${REF} kb!" >&2
         exit 1
@@ -118,5 +123,5 @@ for REF in ${REF_SIZES}; do
 done
 
 echo "------------------------------------------------------------------"
-echo "Referenční soubor byl vytvořen a uložen do: ${FINAL_OUTPUT_DIR} jako reference_${REF}kb_${DNESNI_DATUM}.npz"
+echo "Všechny referenční soubory byly úspěšně vytvořeny a uloženy do: ${FINAL_OUTPUT_DIR}"
 clean_scratch
