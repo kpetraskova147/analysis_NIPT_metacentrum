@@ -2,7 +2,7 @@
 # =============================================================================
 # 0. PBS PARAMETRY
 # =============================================================================
-#PBS -N WisecondorX_Analysis
+#PBS -N Epi2me-WisecondorX_Analysis
 #PBS -l select=1:ncpus=9:mem=32gb:scratch_local=20gb
 #PBS -l walltime=6:00:00
 #PBS -j oe
