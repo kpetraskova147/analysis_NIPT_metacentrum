@@ -19,7 +19,7 @@
 # =============================================================================
 # Na storage: 
     # vytvoř složku RESULTS (pokud ještě není vytvořena)
-    # data: cesta k nim: RESULTS/basecalling_results/basecalling_output_run1/barcode01-xx/.pod5
+    # data: cesta k nim: RESULTS/alignment_results/alignment_output_run1/run1-barcodeXX/.bam a .bam.bai
         # pokud spouštím tuto analýzu na data, u kterých nebylo spuštěno dorado, můžeš upravit cestu a nahrát je jinam
     # vytvoř složku wisecondorX a v ní:
         # 1. skript: skript_wisecondorX.sh 
@@ -28,10 +28,10 @@
         # 3. reference - složka references - složka references_${DATUM} se soubory "reference_${REF_SIZE}kb.npz"
                 # referenci mohu vytvořit pomocí skriptu newRef.sh
         # 4. VOLITELNÉ: skript: uvod_kontrola.py - spíše pro mou kontrolu jestli mám vše připravené, nemusím spouštět
-        # Terminál otevři ve složce wisecondorx, kde máš uložen tento skript (skript_wisecondorX.sh) a další potřebné soubory (samples_seznam_wisecondorx.txt, reference.npz atd.).
+        # Terminál otevři ve složce wisecondorx, kde máš uložen tento skript (skript_wisecondorX.sh)
 
 # Před spuštěním:
-    # 1. Ve složce wisecondorX musíš mít: skript_wisecondorX.sh, reference.npz, environment.yml (+ uvod_kontrola.py - VOLITELNÉ)
+    # 1. Ve složce wisecondorX musíš mít: skript_wisecondorX.sh, environment.yml (+ uvod_kontrola.py - VOLITELNÉ)
     # 2. Uprav PBS -M a PBS -J podle počtu vzorků a svého emailu.
     # 3. Uprav ve 3. kapitole: BASE_DIR, INPUT_BAM_BAI_DIR, OUTPUT_DIR a REFERENCE podle své struktury dat.
     # 4. Uprav absolutní cestu k prostředí v části 4. PŘÍPRAVA PROSTŘEDÍ, pokud se ti nedaří aktivovat prostředí podle jména.
@@ -42,6 +42,8 @@
     # 0. pouze jednou - instalace prostředí: conda install --file environment.yml
     # (1. python3 uvod_kontrola.py - VOLITELNÉ, kontrola vstupních dat navíc a jestli mám vše zadané)
     # 2. qsub -v RUN_NUMBER="run1",DATUM="2026-03-26" skript_wisecondorX.sh
+
+    # DATUM = datum u reference, kterou chci použít (vytvořeno pomocí skriptu newRef.sh) - např. 2026-03-26
 
 # =============================================================================
 # 0. KONTROLA VSTUPNÍCH PROMĚNNÝCH
@@ -199,28 +201,6 @@ TMP_NPZ="${RUN_NUMBER}_${BARCODE}.npz"          # dočasný NPZ soubor ve scratc
 # KROK 1: Convert
 echo "Krok 1: Convert BAM to NPZ pro ${BARCODE}" | tee -a "$JOB_LOG"
 WisecondorX convert "./${LOCAL_BAM}" "./${TMP_BASE}"
-
-sync && sleep 5     # krátká pauza pro jistotu, že se všechny soubory správně zapíší na disk před pokračováním
-
-# VAKCÍNA PROTI CHYBĚ - problém s názvy - predict očekává něco jiného (samples) než vyplivne convert (reads_per_bin)
-echo "Aplikuji opravnou vakcínu na .npz soubor..." | tee -a "$JOB_LOG"
-python3 -c "
-import numpy as np
-f = './${TMP_NPZ}'
-try:
-    with np.load(f, allow_pickle=True) as data_file:
-        data = dict(data_file)
-    # WisecondorX ukládá data jako 'reads_per_bin', ale Predict hledá 'sample'
-    if 'sample' not in data and 'reads_per_bin' in data:
-        data['sample'] = data['reads_per_bin']
-        np.savez(f, **data)
-        print('Vakcína úspěšná: Ošálili jsme WisecondorX, šuplíček \"sample\" byl doplněn!')
-    else:
-        print('Vakcína nebyla potřeba.')
-except Exception as e:
-    print('Chyba při aplikaci vakcíny:', e)
-" | tee -a "$JOB_LOG"
-# ------------------------------------------
 
 # KROK 2: Predict
 echo "Krok 2: Predict pro ${BARCODE}" | tee -a "$JOB_LOG"
