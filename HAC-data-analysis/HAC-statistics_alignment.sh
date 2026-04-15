@@ -2,7 +2,7 @@
 # =============================================================================
 # PBS HLAVIČKA - STATISTIKY - mosdepth a nanostat
 # =============================================================================
-#PBS -N Stats_Mosdepth_Nano
+#PBS -N HAC-Stats_Mosdepth_Nano
 #PBS -l select=1:ncpus=8:mem=16gb:scratch_local=40gb
 #PBS -l walltime=2:00:00
 #PBS -q default

@@ -59,7 +59,7 @@ BARCODE=$(printf "barcode%02d" "$PBS_ARRAY_INDEX")
 # =============================================================================
 # 1. NASTAVENÍ UŽIVATELE A CEST
 # =============================================================================
-BASE_DIR="/storage/plzen1/home/petraskkar"
+BASE_DIR="/storage/brno12-cerit/home/petraskkar"
 FASTQ_FILE=".fastq.gz"
 
 mkdir -p "pbs_outputs"
