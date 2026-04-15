@@ -1,16 +1,18 @@
 #!/bin/bash
 # =============================================================================
-# PBS HLAVIČKA - STATISTIKY - debian11 (starší verze metacentra - pro mosdepth a nanostat)
+# PBS HLAVIČKA - STATISTIKY - mosdepth a nanostat
 # =============================================================================
 #PBS -N Stats_Mosdepth_Nano
-#PBS -l select=1:ncpus=8:mem=16gb:scratch_local=40gb:os=debian11
+#PBS -l select=1:ncpus=8:mem=16gb:scratch_local=40gb
 #PBS -l walltime=2:00:00
 #PBS -q default
 #PBS -j oe
 #PBS -m ae
+
 #PBS -M petraskkar@natur.cuni.cz
 #PBS -J 1-24
 #PBS -o /storage/brno12-cerit/home/petraskkar/alignment/pbs_outputs_statistics/
+#PBS -e /storage/brno12-cerit/home/petraskkar/alignment/pbs_outputs_statistics/
 
 # =============================================================================
 # INSTRUKCE
@@ -21,6 +23,10 @@
         #          : upravím PBS -J pro počet vzorků (1-24 = 24 vzorků), které chci zpracovat a mailovou adresu pro notifikace.
         #          : upravím PBS -o pro uložení výstupů z PBS do složky pbs_outputs
         #          : upravím PBS -M - mailová adresa pro zaslání mailu při ukončení nebo selhání úlohy (nastav svou mailovou adresu)
+    
+        # V sekci 3 je zakomentovaná část pro načítaní modulů pro mosdepth a nanostat, protože na nové verzi metacentra (Debian 12) nejsou tyto moduly zatím nainstalované, 
+        #   proto je potřeba vytvořit dočasné conda prostředí s těmito dvěma programy, které se po dokončení úlohy smaže. Pokud by se v budoucnu nainstalovaly moduly 
+        #   pro mosdepth a nanostat, stačí tento krok odkomentovat a místo toho načíst příslušné moduly.
 
         # Spuštění: qsub -v RUN_NUMBER="run1" statistics_alignment.sh
 
@@ -56,6 +62,8 @@ BARCODE=$(printf "barcode%02d" "$PBS_ARRAY_INDEX")
 # =============================================================================
 BASE_DIR="/storage/brno12-cerit/home/petraskkar"
 
+mkdir -p "$BASE_DIR/alignment/pbs_outputs_statistics"
+
 # Vstup nyní bere z minulé složky alignmentu (BAM soubory)
 BAM_INPUT_DIR="$BASE_DIR/RESULTS/alignment_results/alignment_output_${RUN_NUMBER}/$BARCODE"
 INPUT_BAM="$BAM_INPUT_DIR/${RUN_NUMBER}_${BARCODE}.bam"
@@ -64,9 +72,9 @@ INPUT_BAI="$BAM_INPUT_DIR/${RUN_NUMBER}_${BARCODE}.bam.bai"
 # Výsledky ze statistiky
 STATS_OUTPUT_DIR="$BASE_DIR/RESULTS/statistics_results"
 RUN_STATS_OUTPUT_DIR="$STATS_OUTPUT_DIR/statistics_output_${RUN_NUMBER}"
-FINAL_stats_OUTPUT_DIR="$RUN_STATS_OUTPUT_DIR/$BARCODE"
+FINAL_stats_OUTPUT_DIR="$RUN_STATS_OUTPUT_DIR/${RUN_NUMBER}_${BARCODE}"
 
-LOG_DIR="$BASE_DIR/alignment/statistics_run_logs"
+LOG_DIR="$BASE_DIR/alignment/run_logs_statistics"
 CENTRAL_LOG="$LOG_DIR/alignment_statistics_history.txt"
 
 mkdir -p "$LOG_DIR" 
@@ -97,8 +105,15 @@ SAMPLE_NAME="${RUN_NUMBER}_${BARCODE}"
 # 3. PŘÍPRAVA PROSTŘEDÍ (Zde už vše na Debianu 11 projde hladce)
 # =============================================================================
 module add samtools
-module add mosdepth
-module add nanostat
+# module add mosdepth
+# module add nanostat
+
+# Aktivace conda shellu - na nové verzi metacentra (Debian 12) nejsou nainstalované moduly pro mosdepth a nanostat, proto je potřeba si vytvořit dočasné conda prostředí s těmito dvěma programy, které se po dokončení úlohy smaže.
+eval "$(conda shell.bash hook)"
+
+# Vytvoření dočasného conda prostředí s mosdepth a nanostatem - pokud by se v budoucnu nainstalovaly moduly pro mosdepth a nanostat, stačí tento krok zakomentovat a místo toho načíst příslušné moduly.
+echo "Instaluji NanoStat a Mosdepth přes Mambu..."
+mamba create -y -n temp_stats_env_${PBS_JOBID} -c bioconda nanostat mosdepth
 
 # =============================================================================
 # 4. PŘESUN DO SCRATCHE
@@ -121,7 +136,6 @@ TMP_BAI="./$(basename "$INPUT_BAI")"
     echo "Uzel: $(hostname -f)"
     echo "Scratch adresář: $SCRATCHDIR"
     echo "Array index: $PBS_ARRAY_INDEX"
-    echo "Referenční genom: $(basename $REF_GENOME)"
 } >> "$CENTRAL_LOG"
 
 # 2. Logovací soubor specifický pro tuto úlohu ve scratchi - smaže se po úspěšném dokončení, ale pokud dojde k chybě, zůstane pro kontrolu
@@ -132,10 +146,9 @@ TMP_BAI="./$(basename "$INPUT_BAI")"
     echo "Datum: $(date)"
     echo "Uzel: $(hostname -f)"
     echo "Scratch: $SCRATCHDIR"
-    echo "Vstup: $INPUT_FILE"
-    echo "Výstup: $FINAL_bam_OUTPUT_DIR & $FINAL_stats_OUTPUT_DIR"
+    echo "Vstup: $BAM_INPUT_DIR"
+    echo "Výstup: $FINAL_stats_OUTPUT_DIR"
     echo "Array index: $PBS_ARRAY_INDEX"
-    echo "Referenční genom: $(basename $REF_GENOME)"
 } | tee -a "$JOB_LOG"
 
 # =============================================================================
@@ -145,12 +158,20 @@ echo "[2/3] Počítám a rozděluji statistiky..." | tee -a "$JOB_LOG"
 
 # --- A) STATISTIKY PRO FETÁLNÍ FRAKCI ---
 samtools stats "$TMP_BAM" > full_stats.tmp
-grep "^RL" full_stats.tmp > ${SAMPLE_NAME}lengths.txt
+grep "^RL" full_stats.tmp > ${SAMPLE_NAME}_lengths.txt
 grep -E "^(SN|CO|FFQ)" full_stats.tmp > ${SAMPLE_NAME}_quality_coverage.txt
 
 # --- B) OBECNÉ STATISTIKY KVALITY (NanoStat a Mosdepth) ---
+set +u
+conda activate temp_stats_env_${PBS_JOBID}
+set -u
+
 NanoStat --bam "$TMP_BAM" -t 8 > "${SAMPLE_NAME}_nanostat.txt"
 mosdepth -n -t 8 "${SAMPLE_NAME}_coverage" "$TMP_BAM"
+
+set +u
+conda deactivate
+set -u
 
 # popis:
 # SN (Summary - obsahuje error rate/accuracy)
@@ -190,6 +211,9 @@ cp ${SAMPLE_NAME}_quality_coverage.txt "$FINAL_stats_OUTPUT_DIR/quality_coverage
 cp ${SAMPLE_NAME}_nanostat.txt "$FINAL_stats_OUTPUT_DIR/nanostat_${SAMPLE_NAME}.txt"
 cp ${SAMPLE_NAME}_coverage.mosdepth.summary.txt "$FINAL_stats_OUTPUT_DIR/coverage.mosdepth.summary_${SAMPLE_NAME}.txt"
 cp $JOB_LOG "$FINAL_stats_OUTPUT_DIR/"
+
+echo "Mažu dočasné Mamba prostředí..."
+conda env remove -y -n temp_stats_env_${PBS_JOBID}
 
 echo "ÚSPĚCH STATISTIKY: HOTOVO!" | tee -a "$FINAL_stats_OUTPUT_DIR/statistics_alignment_info.txt"
 clean_scratch

@@ -3,7 +3,7 @@
 # PBS HLAVIČKA - ALIGNMENT (debian12 - nová verze metacentra - pro minimap2)
 # =============================================================================
 #PBS -N Minimap2_Align
-#PBS -l select=1:ncpus=16:mem=64gb:scratch_local=80gb
+#PBS -l select=1:ncpus=16:mem=32gb:scratch_local=80gb
 #PBS -l walltime=6:00:00
 #PBS -q default
 #PBS -j oe
@@ -62,6 +62,8 @@ BARCODE=$(printf "barcode%02d" "$PBS_ARRAY_INDEX")
 BASE_DIR="/storage/brno12-cerit/home/petraskkar"
 FASTQ_FILE=".fastq.gz"
 
+mkdir -p $BASE_DIR/alignment/pbs_outputs
+
 # Umístění vstupních dat - FASTQ soubory (výsledek z Dorada)
 INPUT_DIR="$BASE_DIR/RESULTS/basecall_results"
 RUN_INPUT_DIR="$INPUT_DIR/basecall_output_${RUN_NUMBER}"
@@ -106,9 +108,8 @@ SAMPLE_NAME=$RUN_NUMBER"_"$BARCODE
 # 3. PŘÍPRAVA PROSTŘEDÍ - načtení modulu minimap2 pro alignment
 # =============================================================================
 
+module purge
 module add minimap2
-module unload python/3.7.7-gcc-8.3.0-t4loj4a
-module add samtools/1.14-gcc-10.2.1-oyuzddu
 
 # =============================================================================
 # 4. PŘESUN DO SCRATCHE, INFO DO LOGŮ
@@ -143,7 +144,7 @@ TMP_BAM_BAI="$SCRATCHDIR/${RUN_NUMBER}_${BARCODE}.bam.bai"      # dočasný inde
     echo "Uzel: $(hostname -f)"
     echo "Scratch: $SCRATCHDIR"
     echo "Vstup: $INPUT_FILE"
-    echo "Výstup: $FINAL_bam_OUTPUT_DIR & $FINAL_stats_OUTPUT_DIR"
+    echo "Výstup: $FINAL_bam_OUTPUT_DIR"
     echo "Array index: $PBS_ARRAY_INDEX"
     echo "Referenční genom: $(basename $REF_GENOME)"
 } | tee -a "$JOB_LOG"
@@ -152,16 +153,25 @@ TMP_BAM_BAI="$SCRATCHDIR/${RUN_NUMBER}_${BARCODE}.bam.bai"      # dočasný inde
 # =============================================================================
 # 5. ALIGNMENT (MINIMAP2 -> SORT)
 # =============================================================================
-echo "[2/3] Spouštím Minimap2..." | tee -a "$JOB_LOG"
-minimap2 -ax map-ont -t 16 --MD -R "@RG\tID:${SAMPLE_NAME}\tSM:${SAMPLE_NAME}" ./hg38.mmi ./input$FASTQ_FILE \
-| samtools view -b - \
-| samtools sort -o $TMP_BAM -
+echo "[2/3] Spouštím Minimap2 (ukládám do dočasného SAM)..." | tee -a "$JOB_LOG"
+TMP_SAM="$SCRATCHDIR/${RUN_NUMBER}_${BARCODE}.sam"
+
+minimap2 -ax map-ont -t 16 --MD -R "@RG\tID:${SAMPLE_NAME}\tSM:${SAMPLE_NAME}" ./hg38.mmi ./input$FASTQ_FILE > "$TMP_SAM"
+
+echo "Přepínám moduly: Vypínám Minimap2, zapínám Samtools..." | tee -a "$JOB_LOG"
+module purge
+module add samtools/1.14-gcc-10.2.1-oyuzddu
+
+echo "Převádím SAM na BAM a třídím..." | tee -a "$JOB_LOG"
+samtools view -b "$TMP_SAM" | samtools sort -o $TMP_BAM -
+
+echo "Mažu dočasný SAM soubor - úspora místa" | tee -a "$JOB_LOG"
+rm "$TMP_SAM"
 
 echo "Indexuji BAM - vznik BAM.BAI..." | tee -a "$JOB_LOG"
 samtools index $TMP_BAM
 
-# Výstup z minimap2 jde přímo do samtools view, který ho převádí na BAM, a ten jde rovnou do samtools sort, který ho seřadí a uloží.
-#      | = Neukládej výstup na disk, rovnou ho přepošli dalšímu příkazu. "-" na konci = vstupní data hledej z předchozího příkazu "|".
+
 # -ax map-ont: Preset pro Oxford Nanopore data - dlouhé ready s vyšší chybovostí.
 #     a = výstup v SAM (čitelný pro člověka, velký, pomalý) formátu, x = preset pro typ dat (map-ont pro ONT).
 # -t 16: Použít 16 jader procesoru pro rychlejší běh.

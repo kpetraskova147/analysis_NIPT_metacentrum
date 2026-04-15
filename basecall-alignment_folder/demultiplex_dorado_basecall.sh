@@ -3,8 +3,8 @@
 # PBS HLAVIČKA - Nastavení zdrojů pro PromethION
 # =============================================================================
 #PBS -N Dorado_Basecall
-#PBS -l select=1:ncpus=4:ngpus=1:mem=50gb:scratch_local=2500gb:gpu_mem=40gb
-#PBS -l walltime=24:00:00
+#PBS -l select=1:ncpus=4:ngpus=1:mem=150gb:scratch_local=2500gb:gpu_mem=40gb
+#PBS -l walltime=48:00:00
 #PBS -q gpu
 #PBS -j oe
 #PBS -m ae
@@ -18,14 +18,14 @@
 # =============================================================================
 # INSTRUKCE
 # =============================================================================
-        # Vytvoř složku alignment a v ní složku basecall_results (pro výsledky z Dorada)
+        # Vytvoř složku RESULTS a v ní složku basecall_results (pro výsledky z Dorada) + alignment_results, wisecondorX_results, statistics_results
+        # DATA: složku pod5_pass s mými .pod5 soubory - ve složkách: run1_pod5_pass, run2_pod5_pass, ...
         # Vytvoř si složku basecalling a v ní:
-        # 1. SKRIPT: 'dorado_basecall.sh'
-        # 2. DATA: složku pod5_pass s mými .pod5 soubory - ve složkách: run1_pod5_pass, run2_pod5_pass, ...
-        # 3. SLOŽKA PRO CENTRAL LOGOVACÍ SOUBOR: run_logs
-        # 4. SLOŽKA dorado-1.0.0-linux-x64 - (SOFTWARE) složka bin - soubor dorado
+        # 1. SKRIPT: 'demultiplex_dorado_basecall_array.sh'   (neni-roztrideny-barcodes-dorado_basecall.sh, slozky-barcodes-dorado_basecall.sh)
+        # 2. SLOŽKA dorado-1.0.0-linux-x64 - (SOFTWARE) složka bin - soubor dorado
         #                                  - (MODELY) složka models - dna_r10.4.1_e8.2_400bps_sup@v5.2.0/    - lidský genom
         #                                                          (- dna_r10.4.1_e8.2_400bps_sup@v5.2.0_5mC_5hmC/   - methylace)
+
         # pozn.: pokud chci sledovat metylaci, musím odstranit # před --modified-bases-models a použít model s metylací 
         #        (dna_r10.4.1_e8.2_400bps_sup@v5.0.0_5mC_5hmC@v1) v 1. NASTAVENÍ UŽIVATELE (UPRAV POUZE TUTO ČÁST).
 
@@ -33,9 +33,8 @@
 
         # Ve skriptu je nastavení zaslání mailu při ukončení nebo selhání úlohy - nastav svou mailovou adresu v PBS hlavičce (řádek #PBS -M) 
 
-        # Spuštění: qsub -v RUN_NUMBER="run1" dorado_basecall.sh
-
-
+        # Spuštění: qsub -v RUN_NUMBER="run1" demultiplex_dorado_basecall_array.sh
+        
 # =============================================================================
 # 1. NASTAVENÍ UŽIVATELE (UPRAV POUZE TUTO ČÁST)
 # =============================================================================
@@ -51,15 +50,16 @@ INPUT_POD5_DIR="$BASE_DIR/${RUN_NUMBER}_pod5_pass"   # ${RUN_NUMBER}_pod5_pass =
 OUTPUT_DIR="$BASE_DIR/RESULTS/basecall_results"
 FINAL_OUTPUT_DIR="$OUTPUT_DIR/basecall_output_${RUN_NUMBER}"
 
-# Cesta k softwaru Dorado
-DORADO_BIN="$BASE_DIR/basecalling/dorado-1.0.0-linux-x64/bin/dorado"
-
 # Úložiště pro centrální logovací soubor - záznam o průběhu spuštěných úloh, uzlech a datech všech již projetých souborů.
-mkdir -p "$BASE_DIR//basecalling/run_logs"           # vytvoříme složku pro logy, pokud neexistuje
+mkdir -p "$BASE_DIR/basecalling/run_logs"           # vytvoříme složku pro logy, pokud neexistuje
 CENTRAL_LOG="$BASE_DIR/basecalling/run_logs/demultiplex_basecall_history.txt"
 
+# Cesta k softwaru Dorado
+DORADO_DIR="$BASE_DIR/basecalling/dorado-1.0.0-linux-x64"
+DORADO_BIN="$DORADO_DIR/bin/dorado"
+
 # Model: Pro PromethION R10.4.1 používám SUP (super accuracy) basecalling.
-MODEL="dna_r10.4.1_e8.2_400bps_sup@v5.2.0"
+DORADO_MODEL="$DORADO_DIR/models/dna_r10.4.1_e8.2_400bps_sup@v5.2.0"
     # dna: Je to pro DNA (ne RNA).
     # r10.4.1: Typ póru (flow cell), kterou používáš.
     # e8.2: Verze motorového proteinu (chemie).
@@ -87,7 +87,14 @@ test -n "$SCRATCHDIR" || { echo >&2 "Chyba: SCRATCHDIR není nastaven!"; exit 1;
 
 # Přechod do scratche a kopírování souborů
 cd $SCRATCHDIR || { echo >&2 "Chyba: Nepodařilo se vstoupit do SCRATCHDIR"; exit 2; }
-scp -r storage-brno12-cerit.metacentrum.cz:$INPUT_POD5_DIR $SCRATCHDIR/
+cp -r $INPUT_POD5_DIR $SCRATCHDIR/
+cp -r $DORADO_DIR $SCRATCHDIR/
+
+# Lokální cesty k doradu ve scratchi
+LOCAL_DORADO_DIR="$SCRATCHDIR/dorado-1.0.0-linux-x64"
+LOCAL_DORADO_BIN="$LOCAL_DORADO_DIR/bin/dorado"
+LOCAL_DORADO_MODEL="$LOCAL_DORADO_DIR/models/dna_r10.4.1_e8.2_400bps_sup@v5.2.0"
+LOCAL_METYLACE="$LOCAL_DORADO_DIR/models/dna_r10.4.1_e8.2_400bps_sup@v5.2.0_5mC_5hmC@v1"
 
 # Logování pro kontrolu - logovací soubor bude obsahovat informace o spuštění úlohy, uzlu a cestě ke scratchi
 # 1. Centrální logovací soubor pro všechny úlohy v hlavní složce
@@ -112,9 +119,8 @@ echo "[2/3] Spouštím Dorado Basecaller..." | tee -a basecall_info.txt
 # Pokud chceš zapnout metylaci, odmaž znak '#' na začátku řádku --modified-bases
 # Výstup jde rovnou do fastq souboru.
 
-# INPUT_POD5_DIR v Doradu nahraďte lokální cestou ve scratchi
-$DORADO_BIN basecaller \
-$MODEL \
+$LOCAL_DORADO_BIN basecaller \
+$LOCAL_DORADO_MODEL \
 "$SCRATCHDIR/${RUN_NUMBER}_pod5_pass" \
 --recursive \
 --min-qscore 9 \
@@ -123,7 +129,6 @@ $METYLACE \
 --device cuda:0 \
 > temporary_unaligned.bam
 
-# ./"$INPUT_POD5_DIR" = Cesta ke složce s pod5 soubory, které chceme basecallovat.
 # --recursive \ = Prohledá všechny pod5 soubory v adresáři a podadresářích (složkách).
 # --min-qscore 9 \ = Filtruje slabé čtení. Qscore 9 je poměrně přísný filtr, ale pro vysokou kvalitu dat je to dobrá volba.
 # --emit-fastq \ = Vypne generování BAM souborů (generuji až v další analýze). 
@@ -133,14 +138,14 @@ $METYLACE \
 # 4. DEMULTIPLEXING
 # =============================================================================
 
-echo "[3/4] Rozděluji data podle barcodů (Demultiplexing) do složky ${RUN_NUMBER}_demultiplex_output..." | tee -a basecall_info.txt
+echo "[3/4] Demultiplexing - Rozděluji data podle barcodů do složky ${RUN_NUMBER}_demultiplex_output..." | tee -a basecall_info.txt
 
 mkdir ${RUN_NUMBER}_demultiplex_output # vytvoříme unikátní složku pro výstup z demultiplexingu, aby se nám data z různých úloh nemíchala}
 
 # Dorado Demux vezme ten BAM a rozseká ho na soubory do složky ${RUN_NUMBER}_demultiplex_output
 # --emit-fastq = generuje FASTQ soubory pro každý barcode pro další analýzu (alignment).
 
-$DORADO_BIN demux \
+$LOCAL_DORADO_BIN demux \
 --output-dir ./${RUN_NUMBER}_demultiplex_output \
 --emit-fastq \
 temporary_unaligned.bam
