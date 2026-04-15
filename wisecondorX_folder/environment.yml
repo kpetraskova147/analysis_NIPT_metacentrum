@@ -15,7 +15,10 @@ dependencies:
  - bioconductor-dnacopy
  - r-jsonlite
  - r-optparse
+ - wisecondorx 
  - pip
  - pip:
     - git+https://github.com/CenterForMedicalGeneticsGhent/WisecondorX.git@v1.3.1
     - typer
+
+# pokud pozměním vzhled grafů, můžu udělat novou verzi na svém githubu a dát sem odkaz, aby se to nainstalovalo z mého repozitáře
