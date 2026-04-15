@@ -76,7 +76,7 @@ REF_GENOME="$BASE_DIR/alignment/reference_genome_Hg38/hg38.mmi"
 # Umístění pro výsledky z alignmetu - BAM soubory
 BAM_OUTPUT_DIR="$BASE_DIR/RESULTS/alignment_results"
 RUN_bam_OUTPUT_DIR="$BAM_OUTPUT_DIR/alignment_output_${RUN_NUMBER}"
-FINAL_bam_OUTPUT_DIR="$RUN_bam_OUTPUT_DIR/$BARCODE"
+FINAL_bam_OUTPUT_DIR="$RUN_bam_OUTPUT_DIR/${RUN_NUMBER}_${BARCODE}"
 
 # Logy z alignmetu
 LOG_DIR="$BASE_DIR/alignment/run_logs"
