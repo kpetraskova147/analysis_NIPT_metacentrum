@@ -1,6 +1,27 @@
 # Analysis_NIPT_metacentrum
 In this repository, you can find scripts for basecalling, alignment and wisecondorX analysis of nanopore data (PromethiON). This repository also includes scripts for statistic analysis. Everything is written in Python.
 
+## Umístění souborů
+- [Nahrávání dat](nahravani_dat.md) - rady, jak efektivně nahrát data na metacentrum
+- [Basecalling + alignment na metacentru](basecall-alignment_folder)
+        * tato složka obsahuje: 
+                - alignment_minimap2.sh - starý skript, alignment se statistikou dohromady, nějaké problémy se vyskytovaly
+                - demultiplex_dorado_basecall.sh - v případě, že nezaškrtnu demultiplexing při sekvenaci (lepší zaškrtnout, moc velký soubor, problémy)
+                - **dorado_basecall_array.sh** - multiplexing během sekvenace - rychlé zpracování, top
+                - **only_alignment_minimap2.sh** - alignment výsledků z dorada
+                - **statistics_alignment.sh** - statistické údaje pro statistiku runu (jako z Epi2me)
+- [wisecondorX](wisecondorX_folder)
+        * tato složka obsahuje:
+                - **environment.yml** - prostředí pro instalaci mamby (jako conda) pro analýzu
+                - epi2me-data-samples_seznam_for_PBS.txt - vytvoření seznamu vzorků k analýze, můžu si psát poznámky
+                - **newRef.sh** - vytvoření nové reference
+                - samples_seznam_for_PBS.txt - vytvoření seznamu vzorků k analýze, můžu si psát poznámky
+                - **skript_wisecondorX.sh** - skript pro convert a predict, vytvoření grafů
+                - ***uvod_kontrola.py*** - kontrola před spuštěním analýzy, nepovinné
+#### Skripty navíc:
+- [Analýza dat s HAC kvalitou (bez dorada)](HAC-data-analysis) - upravený skript pro alignment (HAC-alignment.sh), statistiku (statistics_alignment-HAC.sh) a wisecondorX (wisecondorX-HAC.sh), všechno ostatní stejné (newRef.sh, environment.yml)
+- [Analýza dat z Epi2me](Epi2me-data-analysis) - upravený skript pro wisecondorX analýzu (convert, predict), všechno ostatní stejné (newRef.sh, environment.yml)
+
 ## INSTRUCTIONS
 
 IMPORTANT: PBS -J settings. 
@@ -22,7 +43,7 @@ Cíl: Převod surových signálů .pod5 na čtení .fastq.
 Složky barcode01-xx s jednotlivými pod5 soubory (demultiplexing od nanoporu během sekvenace)
 !!DEMULTIPLEXING JE TŘEBA PROVÉST UŽ BĚHEM SEKVENACE, JINAK ANALÝZA TRVÁ VELMI DLOUHO!!
 
-Pokud chceš analyzovat data bez Dorada nebo z Epi2Me, nejideálnější je za mě mít data na různých storage na metacentru pro jednotlivé analýzy a ve skriptu upravit cestu, ať je v tom pořádek
+Pokud chceš analyzovat data bez Dorada (HAC kvalita) a zároveň z Epi2Me, stačí mít ve (stejných) složkách i skripty pro HAC a Epi2me - cesty jsou upraveny.
 
 ##### INSTRUKCE
 Na storage: 
@@ -55,7 +76,7 @@ Potřebuji spustit dva skripty pro alignment (only_alignment_minimap2.sh) a stat
 ##### INSTRUKCE
 Na storage: 
 - vytvoř složku RESULTS (pokud ještě není vytvořena)
-- data: cesta k nim: RESULTS/basecalling_results/basecalling_output_run1/barcode01-xx/.pod5
+- data: cesta k nim: RESULTS/basecalling_results/basecalling_output_run1/barcode01-xx/.fastq
         - pokud spouštím tuto analýzu na data, u kterých nebylo spuštěno dorado, mohu upravit cestu a nahrát je jinam
 - vytvoř složku alignment a v ní:
   
@@ -79,12 +100,12 @@ Na storage:
 Terminál otevřít ve složce "alignment"
 Příkaz (číslo runu se samozřejmě mění):
 
-        qsub -v RUN_NUMBER="run1" only_alignment_minimap2.sh
+        qsub -v RUN_NUMBER="run1" only_alignment_minimap2.sh (HAC-alignment.sh)
 
 Po doběhnutí analýzy alignment spustit statistiku:
 Příkaz:
 
-        qsub -v RUN_NUMBER="run1" statistics_alignment.sh
+        qsub -v RUN_NUMBER="run1" statistics_alignment.sh (HAC-statistics_alignment.sh)
 
 
 #### Kontrola kvality (MultiQC):
@@ -106,25 +127,24 @@ Na storage:
 - data: cesta k nim: RESULTS/basecalling_results/basecalling_output_run1/barcode01-xx/.pod5
         - pokud spouštím tuto analýzu na data, u kterých nebylo spuštěno dorado, můžeš upravit cestu a nahrát je jinam
 - vytvoř složku wisecondorX a v ní:
-  - 1. skript: skript_wisecondorX.sh 
+  - 1. skript: skript_wisecondorX.sh (HAC-wisecondorX.sh, Epi2me-wisecondroX.sh)
   - 2. prostředí: environment.yml - pro vytvoření prostředí s verzemi knihoven, které se nebudou měnit (dobrá kooperace, stálé prostředí)
 
        - !! je třeba instalovat před spuštěním analýzy příkazem: 
 
                 module add mambaforge
 
-                mamba env create -f environment.yml
+                conda activate wisecondorX_env
                 
-  - 3. reference - soubor "reference.npz"
-  
-       - referenci mohu vytvořit pomocí skriptu newRef.sh
+  - 3. reference - složka reference - složka "reference_$DATUM.npz"
+         - referenci mohu vytvořit pomocí skriptu newRef.sh
   - 4. VOLITELNÉ: skript: uvod_kontrola.py - spíše pro mou kontrolu jestli mám vše připravené, nemusím spouštět
 
 #### Tvorba reference
 Ve složce wisecondorX:
 - složka "ALL_NPZ" s npz soubory pro vytvoření reference (do této složky se průběžně přidávají všechny npz soubory ze spuštěných runů - je nutná manuální selekce zdravých jedinců)
-- Výstup: uloží se do složky "references" jako reference_1000kb_[DATUM].npz
-- pro použití je potřeba ji přesunout do wisecondorX složky a přejmenovat na reference.npz (+ si napsat někam poznámku o původním názvu)
+- Výstup: uloží se do složky "references", složky reference_$DATUM jako reference_${REF_SIZ}kb.npz (reference_1000kb.npz, reference_500kb.npz, reference_100kb.npz)
+
 - můžu vytvořit pouze jednu referenci a používat ji dokola, nebo můžu reference aktualizovat
 
 ##### Spuštění:
@@ -138,17 +158,21 @@ Příkaz:
    - Uprav PBS -J pro počet barcode (např. -J 1-24 pro 24 barcodů)
    - Uprav cesty k datům v 1. NASTAVENÍ UŽIVATELE (UPRAV POUZE TUTO ČÁST), pokud jsou jiné
    - Uprav svůj mail v PBS -M → zaslání mailu po ukončení / selhání úlohy
+   - Uprav absolutní cestu k prostředí v části 4. PŘÍPRAVA PROSTŘEDÍ, pokud se ti nedaří aktivovat prostředí podle jména.
+         * absolutní cesta - conda info --envs 
+         * vyhledat wisecondorX_env a zkopírovat cestu, která je v 2.sloupci (např. /auto/brno2/home/petraskkar/.conda/envs/wisecondorX_env)
 
 ##### Spuštění:
-Terminál otevřít ve složce "alignment"
+Terminál otevřít ve složce "wisecondorX
 Příkaz (číslo runu se samozřejmě mění):
  
         conda install --file environment.yml (pouze 1, instalace prostředí)
 
         (1. python3 uvod_kontrola.py - VOLITELNÉ, kontrola vstupních dat a jestli mám vše zadané, ale kontrola i v skript_wisecondorX.sh)
 
-        qsub -v RUN_NUMBER="run1" skript_wisecondroX.sh
+        qsub -v RUN_NUMBER="run1",DATUM=2026-03-26" skript_wisecondorX.sh (HAC-wisecondorX.sh, Epi2me-wisecondorX.sh)
 
+        DATUM = datum u reference: reference_2026-03-26.npz
 
 
 
