@@ -102,24 +102,21 @@ fi
 SAMPLE_NAME="${RUN_NUMBER}-HAC_${BARCODE}"
 
 # =============================================================================
-# 3. PŘÍPRAVA PROSTŘEDÍ (Zde už vše na Debianu 11 projde hladce)
+# 3. PŘÍPRAVA PROSTŘEDÍ
 # =============================================================================
-module add samtools
-# module add mosdepth
-# module add nanostat
+module purge
 
-# Aktivace conda shellu - na nové verzi metacentra (Debian 12) nejsou nainstalované moduly pro mosdepth a nanostat, proto je potřeba si vytvořit dočasné conda prostředí s těmito dvěma programy, které se po dokončení úlohy smaže.
+# --- Aktivace mého prostředí (env_stats_alignment) ---
+module load mambaforge
 eval "$(conda shell.bash hook)"
 
-# Vytvoření dočasného conda prostředí s mosdepth a nanostatem - pokud by se v budoucnu nainstalovaly moduly pro mosdepth a nanostat, stačí tento krok zakomentovat a místo toho načíst příslušné moduly.
-echo "Instaluji NanoStat a Mosdepth přes Mambu..."
-mamba create -y -n temp_stats_env_${PBS_JOBID} -c bioconda nanostat mosdepth
+conda activate $BASE_DIR/conda_envs/env_stats_alignment
 
 # =============================================================================
 # 4. PŘESUN DO SCRATCHE
 # =============================================================================
 cd "$SCRATCHDIR"
-JOB_LOG="$SCRATCHDIR/HAC-statistics_alignment_info.txt"
+JOB_LOG="$SCRATCHDIR/statistics_alignment_info.txt"
 echo "[1/3] Kopíruji BAM a BAI do scratche..." > "$JOB_LOG"
 
 cp "$INPUT_BAM" ./
@@ -156,22 +153,22 @@ TMP_BAI="./$(basename "$INPUT_BAI")"
 # =============================================================================
 echo "[2/3] Počítám a rozděluji statistiky..." | tee -a "$JOB_LOG"
 
+LENGTH_FILE="lengths_${SAMPLE_NAME}.txt"
+QUALITY_COVERAGE_FILE="quality_coverage_${SAMPLE_NAME}.txt"
+NANOSTAT_FILE="nanostat_${SAMPLE_NAME}.txt"
+MOSDEPTH_PREFIX="coverage_${SAMPLE_NAME}"
+
 # --- A) STATISTIKY PRO FETÁLNÍ FRAKCI ---
 samtools stats "$TMP_BAM" > full_stats.tmp
-grep "^RL" full_stats.tmp > ${SAMPLE_NAME}_lengths.txt
-grep -E "^(SN|CO|FFQ)" full_stats.tmp > ${SAMPLE_NAME}_quality_coverage.txt
+grep "^RL" full_stats.tmp > $LENGTH_FILE
+grep -E "^(SN|CO|FFQ)" full_stats.tmp > $QUALITY_COVERAGE_FILE
 
 # --- B) OBECNÉ STATISTIKY KVALITY (NanoStat a Mosdepth) ---
-set +u
-conda activate temp_stats_env_${PBS_JOBID}
-set -u
+NanoStat --bam "$TMP_BAM" -t 8 > $NANOSTAT_FILE
+mosdepth -n -t 8 "$MOSDEPTH_PREFIX" "$TMP_BAM"
 
-NanoStat --bam "$TMP_BAM" -t 8 > "${SAMPLE_NAME}_nanostat.txt"
-mosdepth -n -t 8 "${SAMPLE_NAME}_coverage" "$TMP_BAM"
-
-set +u
-conda deactivate
-set -u
+# --- C) VIZUALIZACE (NanoPlot) ---
+NanoPlot --bam "$TMP_BAM" -t 8 --plots dot --loglength -o "plots_${SAMPLE_NAME}"
 
 # popis:
 # SN (Summary - obsahuje error rate/accuracy)
@@ -179,6 +176,7 @@ set -u
 # FFQ (Quality - kvalita prvního fragmentu)
 # NanoStat (vytvoří soubor s celkovým přehledem kvality readů)
 # Mosdepth (vytvoří soubory s výpočtem pokrytí pro MultiQC)
+# NanoPlot (vytvoří grafy pro délku readů a kvalitu)
 
 # =============================================================================
 # 6. KONTROLA VÝSLEDKU STATISTIKY
@@ -186,10 +184,10 @@ set -u
 echo "[Kontrola] Prověřuji výstupní statistiky..." | tee -a "$JOB_LOG"
 
 FILES_TO_CHECK=(
-    "${SAMPLE_NAME}_lengths.txt"
-    "${SAMPLE_NAME}_quality_coverage.txt"
-    "${SAMPLE_NAME}_nanostat.txt"
-    "${SAMPLE_NAME}_coverage.mosdepth.summary.txt"
+    "$LENGTH_FILE"
+    "$QUALITY_COVERAGE_FILE"
+    "$NANOSTAT_FILE"
+    "$MOSDEPTH_PREFIX.mosdepth.summary.txt"
 )
 
 for FILE in "${FILES_TO_CHECK[@]}"; do
@@ -206,14 +204,12 @@ echo "[3/3] Kopíruji výsledky do $FINAL_stats_OUTPUT_DIR..." | tee -a "$JOB_LO
 
 mkdir -p "$FINAL_stats_OUTPUT_DIR"
 
-cp ${SAMPLE_NAME}_lengths.txt "$FINAL_stats_OUTPUT_DIR/lengths-HAC_${SAMPLE_NAME}.txt"
-cp ${SAMPLE_NAME}_quality_coverage.txt "$FINAL_stats_OUTPUT_DIR/quality_coverage-HAC_${SAMPLE_NAME}.txt"
-cp ${SAMPLE_NAME}_nanostat.txt "$FINAL_stats_OUTPUT_DIR/nanostat-HAC_${SAMPLE_NAME}.txt"
-cp ${SAMPLE_NAME}_coverage.mosdepth.summary.txt "$FINAL_stats_OUTPUT_DIR/coverage.mosdepth.summary-HAC_${SAMPLE_NAME}.txt"
+cp $LENGTH_FILE "$FINAL_stats_OUTPUT_DIR/"
+cp $QUALITY_COVERAGE_FILE "$FINAL_stats_OUTPUT_DIR/"
+cp $NANOSTAT_FILE "$FINAL_stats_OUTPUT_DIR/"
+cp $MOSDEPTH_PREFIX.mosdepth.summary.txt "$FINAL_stats_OUTPUT_DIR/"
+cp -r "plots_${SAMPLE_NAME}" "$FINAL_stats_OUTPUT_DIR/"
 cp $JOB_LOG "$FINAL_stats_OUTPUT_DIR/"
 
-echo "Mažu dočasné Mamba prostředí..."
-conda env remove -y -n temp_stats_env_${PBS_JOBID}
-
-echo "ÚSPĚCH STATISTIKY: HOTOVO!" | tee -a "$FINAL_stats_OUTPUT_DIR/HAC-statistics_alignment_info.txt"
-clean_scratch
+echo "ÚSPĚCH STATISTIKY: HOTOVO!" | tee -a "$FINAL_stats_OUTPUT_DIR/statistics_alignment_info.txt"
+rm -rf "$SCRATCHDIR"/*

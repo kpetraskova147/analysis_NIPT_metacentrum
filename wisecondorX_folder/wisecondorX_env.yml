@@ -1,0 +1,21 @@
+name: wisecondorX_env
+channels:
+  - bioconda
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11
+  - scikit-learn<1.3
+  - pysam
+  - numpy
+  - matplotlib
+  - pandas
+  - scipy
+  - r-base=4.3
+  - bioconductor-dnacopy
+  - r-jsonlite
+  - r-optparse
+  - pip
+  - pip:
+    - git+https://github.com/kpetraskova147/WisecondorX-LAB-NIPT.git
+    - typer

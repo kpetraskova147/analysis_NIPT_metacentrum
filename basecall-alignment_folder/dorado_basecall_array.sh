@@ -76,8 +76,8 @@ RUN_OUTPUT_DIR="$OUTPUT_ROOT/basecall_output_${RUN_NUMBER}"
 FINAL_OUTPUT_DIR="$RUN_OUTPUT_DIR/$BARCODE"
 
 # Cesta k softwaru Dorado
-DORADO_BIN="$WORK_DIR/dorado-1.0.0-linux-x64/bin/dorado"
-MODEL_DIR="$WORK_DIR/dorado-1.0.0-linux-x64/models"
+DORADO_BIN="$WORK_DIR/dorado-2.0.0-linux-x64/bin/dorado"
+MODEL_DIR="$WORK_DIR/dorado-2.0.0-linux-x64/models"
 MODEL="$MODEL_DIR/dna_r10.4.1_e8.2_400bps_sup@v5.2.0"
 KIT="SQK-NBD114-24"
 
@@ -219,7 +219,7 @@ if [ -f "$FINAL_OUTPUT_DIR/$(basename "$TMP_FASTQ_GZ")" ] && [ -f "$FINAL_OUTPUT
         echo "Výsledný soubor: $FINAL_OUTPUT_DIR/$(basename "$TMP_FASTQ_GZ")"
         echo "Kopírování úspěšné. Mažu scratch."
     } | tee -a "$FINAL_OUTPUT_DIR/basecall_info.txt"
-    clean_scratch
+    rm -rf "$SCRATCHDIR"/*
 else
     echo "Chyba: kopírování výsledků selhalo, data zůstávají ve scratchi." | tee -a "$FINAL_OUTPUT_DIR/basecall_info.txt" >&2
     exit 1

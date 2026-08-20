@@ -27,7 +27,14 @@
                 # !! je třeba instalovat před spuštěním analýzy příkazem: conda install --file environment.yml
         # 3. reference - složka references - složka references_${DATUM} se soubory "reference_${REF_SIZE}kb.npz"
                 # referenci mohu vytvořit pomocí skriptu newRef.sh
-        # 4. VOLITELNÉ: skript: uvod_kontrola.py - spíše pro mou kontrolu jestli mám vše připravené, nemusím spouštět
+        # 4. složka wisecondorx (ke stažení na: https://github.com/kpetraskova147/analysis_NIPT_metacentrum/tree/main/wisecondorX_folder/wisecondroX_NIPT_lab) a v ní:
+               # ├── __init__.py
+               # ├── main.py                 # <--- Spouštěcí bod programu
+               # ├── convert_tools.py
+               # ├── predict_control.py
+               # ├── predict_tools.py
+               # ├── ... (všechny ostatní .py soubory ze složky src/wisecondorx z oficiálního repozitáře: https://github.com/CenterForMedicalGeneticsGhent/wisecondorX)
+        # 5. VOLITELNÉ: skript: uvod_kontrola.py - spíše pro mou kontrolu jestli mám vše připravené, nemusím spouštět
         # Terminál otevři ve složce wisecondorx, kde máš uložen tento skript (skript_wisecondorX.sh)
 
 # Před spuštěním:
@@ -37,6 +44,7 @@
     # 4. Uprav absolutní cestu k prostředí v části 4. PŘÍPRAVA PROSTŘEDÍ, pokud se ti nedaří aktivovat prostředí podle jména.
           # absolutní cesta - conda info --envs 
           # vyhledat wisecondorX_env a zkopírovat cestu, která je v 2.sloupci (např. /auto/brno2/home/petraskkar/.conda/envs/wisecondorX_env)
+    # 5. Uprav ve 5. kapitole: SKLON a POSUN podle rovnice z Excelu (y = ax + b) z grafu poměru FF Y (Atila) vs Ratio (FF_ratio_from_length.sh).
 
 # Spuštění: 
     # 0. pouze jednou - instalace prostředí: conda install --file environment.yml
@@ -87,6 +95,10 @@ RUN_INPUT_DIR="$INPUT_BAM_DIR/alignment_output_${RUN_NUMBER}/$BARCODE"
 BAM_FILE="$RUN_INPUT_DIR/${RUN_NUMBER}_${BARCODE}.bam"
 BAI_FILE="$RUN_INPUT_DIR/${RUN_NUMBER}_${BARCODE}.bam.bai"
 
+# Cesta k hist souboru pro aktuální vzorek
+HIST_FOLDER="$BASE_DIR/RESULTS/statistics_results/statistics_output_${RUN_NUMBER}/${RUN_NUMBER}_${BARCODE}"
+HIST_FILE="$HIST_FOLDER/lengths_${RUN_NUMBER}_${BARCODE}.txt"
+
 # Cesta k referenci
 REF_DIR="$WORK_DIR/references/reference_${DATUM}"
 REF_SIZES="1000 500 100"
@@ -95,6 +107,8 @@ REF_SIZES="1000 500 100"
 OUTPUT_DIR="$BASE_DIR/RESULTS/wisecondorX_results"
 RUN_OUTPUT_DIR="$OUTPUT_DIR/wisecondorX_output_${RUN_NUMBER}"
 FINAL_OUTPUT_DIR="$RUN_OUTPUT_DIR/${RUN_NUMBER}_${BARCODE}"
+PLOTS_OUTPUT_DIR="$RUN_OUTPUT_DIR/PLOTS_${RUN_NUMBER}"
+
 # Uložení všech NPZ souborů do složky ALL_NPZ pro případné vytvoření nové reference
 NPZ_OUTPUT_DIR="$WORK_DIR/ALL_NPZ"
 
@@ -200,10 +214,46 @@ TMP_NPZ="${RUN_NUMBER}_${BARCODE}.npz"          # dočasný NPZ soubor ve scratc
 
 # KROK 1: Convert
 echo "Krok 1: Convert BAM to NPZ pro ${BARCODE}" | tee -a "$JOB_LOG"
-WisecondorX convert "./${LOCAL_BAM}" "./${TMP_BASE}"
+python3 $WORK_DIR/wisecondorx/main.py convert "./${LOCAL_BAM}" "./${TMP_BASE}"
 
 # KROK 2: Predict
 echo "Krok 2: Predict pro ${BARCODE}" | tee -a "$JOB_LOG"
+
+if [ -f "$HIST_FILE" ]; then
+    # Vytáhneme Ratio přímo z hist souboru
+    RATIO=$(awk '{ 
+        if($1 >= 100 && $1 <= 150) { short += $3 } 
+        else if($1 >= 160 && $1 <= 200) { long += $3 } 
+    } 
+    END { 
+        if(long > 0) { printf "%.4f", short / long } 
+        else { printf "0.0000" } 
+    }' "$HIST_FILE")
+else
+    echo "KRITICKÁ CHYBA: Soubor $HIST_FILE nebyl nalezen! Analýza pro vzorek $BARCODE se ukončuje." | tee -a "$JOB_LOG"
+    exit 1
+fi
+
+echo ">> Zjištěný poměr (Ratio): $RATIO" | tee -a "$JOB_LOG"
+
+# -----------------------------------------------------------------------------
+# ZDE ZADEJ ROVNICI Z EXCELU (y = ax + b)
+# Příklad: Pokud v Excelu vyšlo y = 25.4x - 5.2, zadej SKLON="25.4" a POSUN="-5.2"
+# -----------------------------------------------------------------------------
+SKLON="0.5015"   # Doplň reálné číslo (a)
+POSUN="-0.0565"   # Doplň reálné číslo (b)
+
+# Matematický výpočet samotné FF (přes awk, pro práci s desetinnými čísly)
+MY_FF=$(awk -v r="$RATIO" -v s="$SKLON" -v p="$POSUN" 'BEGIN { 
+    result = (r * s) + p; 
+    if(result < 0) result = 0;     # Pojistka proti záporným číslům
+    printf "%.2f", result 
+}')
+
+echo ">> Vypočítaná fetální frakce: ${MY_FF} %" | tee -a "$JOB_LOG"
+
+# EXPORT DO SYSTÉMU (Tímto se hodnota předá upravenému R skriptu)
+export CURRENT_FF="$MY_FF"
 
 for REF_SIZE in ${REF_SIZES}; do
     echo "--- Počítám rozlišení: ${REF_SIZE} kb ---" | tee -a "$JOB_LOG"
@@ -215,11 +265,13 @@ for REF_SIZE in ${REF_SIZES}; do
     # Výsledek bude např. plots_1000kb/run1_barcode05_1000kb
 
     # Výstup v PNG
-    WisecondorX predict "./${TMP_NPZ}" "./${CURRENT_REF}" "${PREFIX}" \
+    python3 $WORK_DIR/wisecondorx/main.py predict "./${TMP_NPZ}" "./${CURRENT_REF}" "${PREFIX}" \
         --plot \
         --bed \
         --ylim "-1.5 1.0"
 done
+
+unset CURRENT_FF
 
 echo "Hotovo: ${BARCODE}" | tee -a "$JOB_LOG"
 
@@ -230,10 +282,14 @@ echo "Hotovo: ${BARCODE}" | tee -a "$JOB_LOG"
 echo "Kopírování výsledků zpět na storage" | tee -a "$JOB_LOG"
 
 mkdir -p "$FINAL_OUTPUT_DIR"
+mkdir -p "$PLOTS_OUTPUT_DIR"
 
-# Zkopíruje všechny tři složky s grafy do složky pro tento vzorek
+# Zkopíruje všechny tři složky s grafy a další soubory do složky pro tento vzorek
 cp -r plots_* "$FINAL_OUTPUT_DIR/"
 cp "$JOB_LOG" "$FINAL_OUTPUT_DIR/wisecondorX_info.txt"
+
+# Přesun pouze grafů do složky {RUN_OUTPUT_DIR}_plots
+mv "$FINAL_OUTPUT_DIR/${RUN_NUMBER}_${BARCODE}" "$PLOTS_OUTPUT_DIR/"
 
 # Záloha původního konvertovaného .npz do složky ALL_NPZ pro případné vytvoření nové reference
 cp "$TMP_NPZ" "$NPZ_OUTPUT_DIR/"

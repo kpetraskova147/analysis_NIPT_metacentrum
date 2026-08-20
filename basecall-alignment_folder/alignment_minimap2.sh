@@ -201,4 +201,4 @@ cp "$TMP_BAM_BAI" "$FINAL_bam_OUTPUT_DIR/${SAMPLE_NAME}.bam.bai"
 cp "$JOB_LOG" "$FINAL_bam_OUTPUT_DIR/alignment_info.txt"
 
 echo "ÚSPĚCH: HOTOVO! Výsledky zkopírovány do $FINAL_bam_OUTPUT_DIR" | tee -a "$FINAL_bam_OUTPUT_DIR/alignment_info.txt"
-clean_scratch
+rm -rf "$SCRATCHDIR"/*

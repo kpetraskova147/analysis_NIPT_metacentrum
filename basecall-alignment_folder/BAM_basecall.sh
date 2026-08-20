@@ -2,8 +2,8 @@
 # =============================================================================
 # PBS HLAVIČKA - Nastavení zdrojů pro PromethION
 # =============================================================================
-#PBS -N Dorado_Basecall
-#PBS -l select=1:ncpus=4:ngpus=1:mem=150gb:scratch_local=2500gb:gpu_mem=40gb
+#PBS -N BAM_Basecall
+#PBS -l select=1:ncpus=4:ngpus=1:mem=200gb:scratch_local=2500gb:gpu_mem=40gb
 #PBS -l walltime=48:00:00
 #PBS -q gpu
 #PBS -j oe
@@ -46,13 +46,13 @@ BASE_DIR="/storage/brno12-cerit/home/petraskkar"
 # Kde jsou vstupní data (.pod5)
 INPUT_POD5_DIR="$BASE_DIR/${RUN_NUMBER}_pod5_pass"   # ${RUN_NUMBER}_pod5_pass = složka s pod5 soubory z konkrétního runu (run1_pod5_pass, ...)
 
-# Kam půjde výsledek (.fastq)
+# Kam půjde výsledek (.bam)
 OUTPUT_DIR="$BASE_DIR/RESULTS/basecall_results"
-FINAL_OUTPUT_DIR="$OUTPUT_DIR/basecall_output_${RUN_NUMBER}"
+FINAL_OUTPUT_DIR="$OUTPUT_DIR/BAM_basecall_${RUN_NUMBER}"
 
 # Úložiště pro centrální logovací soubor - záznam o průběhu spuštěných úloh, uzlech a datech všech již projetých souborů.
 mkdir -p "$BASE_DIR/basecalling/run_logs"           # vytvoříme složku pro logy, pokud neexistuje
-CENTRAL_LOG="$BASE_DIR/basecalling/run_logs/demultiplex_basecall_history.txt"
+CENTRAL_LOG="$BASE_DIR/basecalling/run_logs/BAM_basecall_history.txt"
 
 # Cesta k softwaru Dorado
 DORADO_DIR="$BASE_DIR/basecalling/dorado-1.0.0-linux-x64"
@@ -104,16 +104,29 @@ echo "Uzel: $(hostname -f)" >> $CENTRAL_LOG
 echo "Scratch adresář: $SCRATCHDIR" >> $CENTRAL_LOG
 
 # 2. Logovací soubor specifický pro tuto úlohu ve scratchi - smaže se po úspěšném dokončení, ale pokud dojde k chybě, zůstane pro kontrolu
-echo "----------------------------------------------------------------" | tee basecall_info.txt
-echo "Spouštím úlohu: $RUN_NUMBER dne: $(date)" | tee -a basecall_info.txt
-echo "Uzel: $(hostname -f)" | tee -a basecall_info.txt
-echo "Scratch adresář: $PWD" | tee -a basecall_info.txt
+echo "----------------------------------------------------------------" > BAM_basecall_info.txt
+echo "Spouštím úlohu: $RUN_NUMBER dne: $(date)" | tee -a BAM_basecall_info.txt
+echo "Uzel: $(hostname -f)" | tee -a BAM_basecall_info.txt
+echo "Scratch adresář: $PWD" | tee -a BAM_basecall_info.txt
+# Kontrola kopírování dat do scratche
+TARGET_POD5="$SCRATCHDIR/$(basename $INPUT_POD5_DIR)"
+echo "--- Kontrola scratche po kopírování ---" | tee -a BAM_basecall_info.txt
+if [ -d "$TARGET_POD5" ]; then
+    FILE_COUNT=$(ls -1 "$TARGET_POD5"/*.pod5 2>/dev/null | wc -l)
+    DIR_SIZE=$(du -sh "$TARGET_POD5" | cut -f1)
+    echo "Složka $(basename $INPUT_POD5_DIR) OK." | tee -a BAM_basecall_info.txt
+    echo "Počet .pod5 souborů: $FILE_COUNT" | tee -a BAM_basecall_info.txt
+    echo "Celková velikost: $DIR_SIZE" | tee -a BAM_basecall_info.txt
+else
+    echo "KRITICKÁ CHYBA: Složka s daty se do scratche nepřekopírovala!" | tee -a BAM_basecall_info.txt
+    exit 1
+fi
 
 # =============================================================================
 # 3. BASECALLING (DORADO)
 # =============================================================================
 
-echo "[2/3] Spouštím Dorado Basecaller..." | tee -a basecall_info.txt
+echo "[2/3] Spouštím Dorado Basecaller..." | tee -a BAM_basecall_info.txt
 
 # Sestavení příkazu.
 # Pokud chceš zapnout metylaci, odmaž znak '#' na začátku řádku --modified-bases
@@ -121,7 +134,7 @@ echo "[2/3] Spouštím Dorado Basecaller..." | tee -a basecall_info.txt
 
 $LOCAL_DORADO_BIN basecaller \
 $LOCAL_DORADO_MODEL \
-"$SCRATCHDIR/${RUN_NUMBER}_pod5_pass" \
+"$SCRATCHDIR/$(basename $INPUT_POD5_DIR)" \
 --recursive \
 --min-qscore 9 \
 $KIT_NAME \
@@ -135,67 +148,27 @@ $METYLACE \
 # --device cuda:0 \ = Určuje, že chceme použít GPU pro zrychlení basecallingu. cuda:0 znamená první GPU v systému.
 
 # =============================================================================
-# 4. DEMULTIPLEXING
+# 4. KOPÍROVÁNÍ VÝSLEDKŮ A ÚKLID
 # =============================================================================
 
-echo "[3/4] Demultiplexing - Rozděluji data podle barcodů do složky ${RUN_NUMBER}_demultiplex_output..." | tee -a basecall_info.txt
-
-mkdir ${RUN_NUMBER}_demultiplex_output # vytvoříme unikátní složku pro výstup z demultiplexingu, aby se nám data z různých úloh nemíchala}
-
-# Dorado Demux vezme ten BAM a rozseká ho na soubory do složky ${RUN_NUMBER}_demultiplex_output
-# --emit-fastq = generuje FASTQ soubory pro každý barcode pro další analýzu (alignment).
-
-$LOCAL_DORADO_BIN demux \
---output-dir ./${RUN_NUMBER}_demultiplex_output \
---emit-fastq \
-temporary_unaligned.bam
-
-# =============================================================================
-# 5. PŘEJMENOVÁNÍ SOUBORŮ
-# =============================================================================
-
-echo "[4/5] Čistím názvy souborů (odstraňuji $KIT)..." | tee -a basecall_info.txt
-
-cd ${RUN_NUMBER}_demultiplex_output
-
-# Cyklus přes všechny fastq soubory
-for FILE in *.fastq; do
-    # Pokud soubor existuje (pojistka)
-    [ -f "$FILE" ] || continue
-    
-    # Nový název: Ve jménu souboru nahradíme "SQK-NBD114-24_" za "nic"
-    # ${PROMĚNNÁ/CO_NAHRADIT/ČÍM_NAHRADIT}
-    NEW_NAME="${FILE/${KIT}_/}"
-    
-    # Přejmenování
-    mv "$FILE" "$NEW_NAME"
-done
-
-# Vracíme se o úroveň výš (z demux složky zpět do rootu scratche)
-cd ..
-
-# =============================================================================
-# 6. KOPÍROVÁNÍ VÝSLEDKŮ A ÚKLID
-# =============================================================================
-
-echo "[3/3] Kopíruji výsledky zpět na storage..." | tee -a basecall_info.txt
+echo "[3/3] Kopíruji výsledky zpět na storage..." | tee -a BAM_basecall_info.txt
 
 # Vytvoření výstupní složky, pokud neexistuje
 mkdir -p $FINAL_OUTPUT_DIR        # mkdir -p: vytvoří složku, pokud neexistuje
 
 # Kopírování výsledného souboru a logu z scratche zpět do storage
-cp -r "$SCRATCHDIR/${RUN_NUMBER}_demultiplex_output" "$FINAL_OUTPUT_DIR/"
-cp "$SCRATCHDIR/basecall_info.txt" "$FINAL_OUTPUT_DIR/basecall_info.txt"
+cp -r "$SCRATCHDIR/temporary_unaligned.bam" "$FINAL_OUTPUT_DIR/${RUN_NUMBER}_unaligned.bam"
+cp "$SCRATCHDIR/BAM_basecall_info.txt" "$FINAL_OUTPUT_DIR/BAM_basecall_info.txt"
 
 # Kontrola, zda se soubor final_reads.fastq zkopíroval správně. 
 # - pokud ano, smažeme scratch, pokud ne, necháme data ve scratchi pro kontrolu.
-if [ -d "$FINAL_OUTPUT_DIR" ]; then
-    echo "Kopírování úspěšné. Výsledky jsou v basecall_output_${RUN_NUMBER}. Mažu scratch." | tee -a basecall_info.txt
+if [ -s "$FINAL_OUTPUT_DIR/${RUN_NUMBER}_unaligned.bam" ]; then
+    echo "Kopírování úspěšné. Výsledky jsou v basecall_output_${RUN_NUMBER}. Mažu scratch." | tee -a BAM_basecall_info.txt
     clean_scratch
 else
-    echo "CHYBA: Soubor se nezkopíroval! Data zůstávají ve scratchi pro kontrolu." | tee -a basecall_info.txt
+    echo "CHYBA: Soubor se nezkopíroval! Data zůstávají ve scratchi pro kontrolu." | tee -a BAM_basecall_info.txt
     # Schratch není smazán, abych mohla zkontrolovat chybu.
     exit 1
 fi      # fi - konec kontroly kopírování (podmínky if, převrácené if)
 
-echo "Hotovo: $RUN_NUMBER dne: $(date)" | tee -a "$FINAL_OUTPUT_DIR/basecall_info.txt"
+echo "Hotovo: $RUN_NUMBER dne: $(date)" | tee -a "$FINAL_OUTPUT_DIR/BAM_basecall_info.txt"

@@ -12,15 +12,15 @@ In this repository, you can find scripts for basecalling, alignment and wisecond
                 - **statistics_alignment.sh** - statistické údaje pro statistiku runu (jako z Epi2me)
 - [wisecondorX](wisecondorX_folder)
         * tato složka obsahuje:
-                - **environment.yml** - prostředí pro instalaci mamby (jako conda) pro analýzu
+                - **wisecondorX_env.yml** - prostředí pro instalaci mamby (jako conda) pro analýzu
                 - epi2me-data-samples_seznam_for_PBS.txt - vytvoření seznamu vzorků k analýze, můžu si psát poznámky
                 - **newRef.sh** - vytvoření nové reference
                 - samples_seznam_for_PBS.txt - vytvoření seznamu vzorků k analýze, můžu si psát poznámky
                 - **skript_wisecondorX.sh** - skript pro convert a predict, vytvoření grafů
                 - ***uvod_kontrola.py*** - kontrola před spuštěním analýzy, nepovinné
 #### Skripty navíc:
-- [Analýza dat s HAC kvalitou (bez dorada)](HAC-data-analysis) - upravený skript pro alignment (HAC-alignment.sh), statistiku (statistics_alignment-HAC.sh) a wisecondorX (wisecondorX-HAC.sh), všechno ostatní stejné (newRef.sh, environment.yml)
-- [Analýza dat z Epi2me](Epi2me-data-analysis) - upravený skript pro wisecondorX analýzu (convert, predict), všechno ostatní stejné (newRef.sh, environment.yml)
+- [Analýza dat s HAC kvalitou (bez dorada)](HAC-data-analysis) - upravený skript pro alignment (HAC-alignment.sh), statistiku (statistics_alignment-HAC.sh) a wisecondorX (wisecondorX-HAC.sh), všechno ostatní stejné (newRef.sh, wisecondorX_env.yml)
+- [Analýza dat z Epi2me](Epi2me-data-analysis) - upravený skript pro wisecondorX analýzu (convert, predict), všechno ostatní stejné (newRef.sh, wisecondorX_env.yml)
 
 ## INSTRUCTIONS
 
@@ -51,7 +51,7 @@ Na storage:
 - vstupní data s pod5 soubory ve složce: run1_pod5_pass, run2_pod5_pass ...
 - vytvoř složku basecalling a v ní:
     - 1. skript: dorado_basecall_array.sh
-    - 2. složka: dorado-1.0.0-linux-x64 a v ní:
+    - 2. složka: dorado-2.0.0-linux-x64 (ke stažení zde: https://github.com/nanoporetech/dorado/tree/release-v2.0) a v ní:
                 - (software) složka "bin" - soubor "dorado"
                 - (modely) složka "models" - soubor "dna_r10.4.1_e8.2_400bps_sup@v5.2.0/"    - lidský genom
                                           (- soubor "- dna_r10.4.1_e8.2_400bps_sup@v5.2.0_5mC_5hmC/"   - methylace)
@@ -91,6 +91,7 @@ Na storage:
                                 minimap2 -x map-ont -d hg38.mmi hg38.analysisSet.fa
 
    - 3. skript: statistics_alignment.sh - pro vytvoření statistiky pro délku fragmentů, kvality atd.
+   - 4. prostředí: env_statistics_alignment.yml
 
 - Nastavení: Uprav PBS -J pro počet barcode (např. -J 1-24 pro 24 barcodů)
            : Uprav cesty k datům v 1. NASTAVENÍ UŽIVATELE (UPRAV POUZE TUTO ČÁST), pokud jsou jiné
@@ -103,6 +104,13 @@ Příkaz (číslo runu se samozřejmě mění):
         qsub -v RUN_NUMBER="run1" only_alignment_minimap2.sh (HAC-alignment.sh)
 
 Po doběhnutí analýzy alignment spustit statistiku:
+Instalace prostředí (jen jednou):
+
+        conda install --file env_stats_alignment.yml
+
+        možnost B (skript):
+        qsub instalace_stats_env.sh
+
 Příkaz:
 
         qsub -v RUN_NUMBER="run1" statistics_alignment.sh (HAC-statistics_alignment.sh)
@@ -113,32 +121,101 @@ Po doběhnutí analýzy mohu spustit MultiQC pro přehled všech vzorků
 - MultiQC se podívá do všech podsložek, najde tam mosdepth summary a nanostat a vytvoří přehledný report s grafy pro všechny vzorky v jednom souboru (multiqc_report.html)
 Spuštění MultiQC:
         1. Přejdu do složky s výsledky (OUTPUT_DIR) - cd /storage/brno12-cerit/home/petraskkar/RESULTS/alignment/alignment_output_run1 
-        2. Načtu program: module add multiqc
-        3. Spustím: multiqc .
+        2. Aktivace prostředí: 
+                
+                module load mambaforge
+                eval "$(conda shell.bash hook)"
+                conda activate /storage/brno12-cerit/home/petraskkar/conda_envs/env_stats_alignment
+
+        4. Spustím: 
+        
+                multiqc .
 
 ### FÁZE 3: WisecondorX (NIPT Analýza)
 Cíl: Detekce chromozomálních aberací a NIPT reporty.
 Skript provádí dvě hlavní operace: konverzi BAM souboru do NPZ formátu a následnou analýzu (predict) pomocí WisecondorX. 
 Tento skript je navržen pro spuštění jako PBS job array, kde každý vzorek je zpracováván samostatně. Výstupy jsou organizovány do struktury složek podle vzorků a runů.
 
+###### POZN.: problém s wisecondorX - official github. Neustále tam něco mění a přesouvají to na python (teď zjistili, že tam cesta nevede). Věčně to nefunguje - proto je vytvořený nový soukromý github: https://github.com/kpetraskova147/WisecondorX-LAB-NIPT.git se všemi důležitými skripty pro wisecondorX a osobními úpravami grafů dle libosti.
+
 ##### INSTRUKCE
 Na storage: 
-- vytvoř složku RESULTS (pokud ještě není vytvořena)
-- data: cesta k nim: RESULTS/basecalling_results/basecalling_output_run1/barcode01-xx/.pod5
+    - vytvoř složku RESULTS (pokud ještě není vytvořena)
+    - data: cesta k nim: RESULTS/alignment_results/alignment_output_run1/run1-barcodeXX/.bam a .bam.bai
         - pokud spouštím tuto analýzu na data, u kterých nebylo spuštěno dorado, můžeš upravit cestu a nahrát je jinam
-- vytvoř složku wisecondorX a v ní:
-  - 1. skript: skript_wisecondorX.sh (HAC-wisecondorX.sh, Epi2me-wisecondroX.sh)
-  - 2. prostředí: environment.yml - pro vytvoření prostředí s verzemi knihoven, které se nebudou měnit (dobrá kooperace, stálé prostředí)
+    - vytvoř složku wisecondorX a v ní:
+        - 1. skript: skript_wisecondorX.sh 
+        - 2. prostředí: wisecondroX_env.yml - pro vytvoření prostředí s verzemi knihoven, které se nebudou měnit (dobrá kooperace, stálé prostředí)
+                 !! je třeba instalovat před spuštěním analýzy příkazem: conda install --file environment.yml
+        - 3. reference - složka references - složka references_${DATUM} se soubory "reference_${REF_SIZE}kb.npz"
+                 referenci mohu vytvořit pomocí skriptu newRef.sh
+        - 4. složka wisecondorx (ke stažení na: https://github.com/kpetraskova147/WisecondorX-LAB-NIPT.git) a v ní:
+                ├── __init__.py
+                ├── main.py                 # <--- Spouštěcí bod programu
+                ├── convert_tools.py
+                ├── predict_control.py
+                ├── predict_tools.py
+                ├── ... (všechny ostatní .py soubory ze složky src/wisecondorx z oficiálního repozitáře: https://github.com/CenterForMedicalGeneticsGhent/wisecondorX)
+        - Terminál otevři ve složce wisecondorx, kde máš uložen tento skript (skript_wisecondorX.sh)
 
-       - !! je třeba instalovat před spuštěním analýzy příkazem: 
+#### Před spuštěním:
+     1. Ve složce wisecondorX musíš mít: skript_wisecondorX.sh, wisecondorX_env.yml, ... (viz výše)
+     2. Uprav PBS -M a PBS -J podle počtu vzorků a svého emailu.
+     3. Uprav ve 3. kapitole: BASE_DIR, INPUT_BAM_BAI_DIR, OUTPUT_DIR a REFERENCE podle své struktury dat.
+     4. Uprav absolutní cestu k prostředí v části 4. PŘÍPRAVA PROSTŘEDÍ, pokud se ti nedaří aktivovat prostředí podle jména.
+           absolutní cesta - conda info --envs 
+           vyhledat wisecondorX_env a zkopírovat cestu, která je v 2.sloupci (např. /auto/brno2/home/petraskkar/.conda/envs/wisecondorX_env)
+     5. Uprav ve 5. kapitole: SKLON a POSUN podle rovnice z Excelu (y = ax + b) z grafu poměru FF Y (Atila) vs Ratio (skript - FF_ratio_from_length.sh (z length.hist souborů)).
 
-                module add mambaforge
+###### Fetal Fraction (FF) Estimation Protocol
+This protocol describes the determination of fetal fraction from cell-free DNA (cfDNA) size profiles using fragment length distribution and empirical linear calibration.
 
-                conda activate wisecondorX_env
-                
-  - 3. reference - složka reference - složka "reference_$DATUM.npz"
-         - referenci mohu vytvořit pomocí skriptu newRef.sh
-  - 4. VOLITELNÉ: skript: uvod_kontrola.py - spíše pro mou kontrolu jestli mám vše připravené, nemusím spouštět
+1. Fragment Ratio Calculation
+
+Circulating cell-free DNA in maternal plasma consists of shorter fetal fragments (peaking around 143 bp) and longer maternal fragments (peaking around 166 bp). The relative ratio of short-to-long fragments serves as a proxy for fetal cfDNA abundance.
+
+Mathematical Formula
+
+        $$Ratio = \frac{\sum \text{Fragments with length } \in [100\text{ bp}, 150\text{ bp}]}{\sum \text{Fragments with length } \in [160\text{ bp}, 200\text{ bp}]}$$
+
+        Short fragments: Sum of sequenced reads with fragment lengths between 100 bp and 150 bp (enriched for fetal-derived cfDNA).
+        Long fragments: Sum of sequenced reads with fragment lengths between 160 bp and 200 bp (predominantly maternal mono-nucleosomal cfDNA).
+
+2. Linear Calibration Model
+
+To convert the calculated sample-specific $Ratio$ into an absolute Fetal Fraction ($FF$), a standard linear regression model calibrated against reference samples (e.g., male pregnancies quantified via chromosome Y read counts) is applied - measured by PCR.
+
+Na storage: 
+     vytvoř složku RESULTS (pokud ještě není vytvořena)
+     data: cesta k nim: RESULTS/statistics_results/statistics_output_runX/runX-barcodeXX
+         : lengths_run1_barcode01.txt (případně .hist - z Epi2me → upravit .txt na .hist)
+         : pokud spouštím tuto analýzu na data, u kterých nebylo spuštěno dorado, můžeš upravit cestu a nahrát je jinam
+
+     vytvoř složku FF_calculation a v ní:
+         1. skript: FF_ratio_from_length.sh
+
+##### Spuštění:
+Terminál otevřít ve složce "FF_calculation"
+Příkaz:
+
+        qsub -v RUN_NUMBER="run1" FF_ratio_from_length.sh
+
+##### Analysis 
+Transfer data to the excel with data from Atila PCR. Create dot graph and Trade Line. Gain the Linear Regression Formula.
+
+![Dependence of the representation of the fetal fraction on the ratio of fetal and maternal fragments](image.png)
+
+Linear Regression Formula
+
+        y = a * x + b
+        FF = (Slope * Ratio) + Intercept
+
+        y = Fetal Fraction ($FF$): The estimated proportion of fetal cfDNA.
+        x = Fragment Ratio ($Ratio$): The computed predictor variable from fragment sizing.
+        a = Slope ($Slope$): The rate of change in fetal fraction per unit change in fragment ratio.
+        b = Y-Intercept ($Intercept$): The baseline offset value where the regression line intersects the Y-axis.
+
+The fetal fraction was measured by using PCR within XY samples to reliably determine the amount of fetal fraction.
 
 #### Tvorba reference
 Ve složce wisecondorX:
@@ -158,7 +235,9 @@ Příkaz:
    - Uprav PBS -J pro počet barcode (např. -J 1-24 pro 24 barcodů)
    - Uprav cesty k datům v 1. NASTAVENÍ UŽIVATELE (UPRAV POUZE TUTO ČÁST), pokud jsou jiné
    - Uprav svůj mail v PBS -M → zaslání mailu po ukončení / selhání úlohy
-   - Uprav absolutní cestu k prostředí v části 4. PŘÍPRAVA PROSTŘEDÍ, pokud se ti nedaří aktivovat prostředí podle jména.
+   - Uprav absolutní cestu k prostředí v části 
+   
+   - PŘÍPRAVA PROSTŘEDÍ, pokud se ti nedaří aktivovat prostředí podle jména.
          * absolutní cesta - conda info --envs 
          * vyhledat wisecondorX_env a zkopírovat cestu, která je v 2.sloupci (např. /auto/brno2/home/petraskkar/.conda/envs/wisecondorX_env)
 
@@ -166,13 +245,16 @@ Příkaz:
 Terminál otevřít ve složce "wisecondorX
 Příkaz (číslo runu se samozřejmě mění):
  
-        conda install --file environment.yml (pouze 1, instalace prostředí)
+                * module load mambaforge
+                * eval "$(conda shell.bash hook)"
 
-        (1. python3 uvod_kontrola.py - VOLITELNÉ, kontrola vstupních dat a jestli mám vše zadané, ale kontrola i v skript_wisecondorX.sh)
+                * mamba install --file wisecondorX_env.yml (pouze 1, instalace prostředí)
 
         qsub -v RUN_NUMBER="run1",DATUM=2026-03-26" skript_wisecondorX.sh (HAC-wisecondorX.sh, Epi2me-wisecondorX.sh)
 
-        DATUM = datum u reference: reference_2026-03-26.npz
+                * DATUM = datum u reference: reference_2026-03-26.npz
+
+
 
 
 
@@ -209,6 +291,7 @@ B) Alignment z epi2me:
         print barcode " " bam_path " " run_num
         }' > /storage/praha1/home/TVUJ_LOGIN/wisecondorX/samples_seznam_wisecondorx.txt
 
+## STATISTIKA
 
 
 

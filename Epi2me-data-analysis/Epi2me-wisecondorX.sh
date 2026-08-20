@@ -27,7 +27,16 @@
                 # !! je třeba instalovat před spuštěním analýzy příkazem: conda install --file environment.yml
         # 3. reference - složka references - složka references_${DATUM} se soubory "reference_${REF_SIZE}kb.npz"
                 # referenci mohu vytvořit pomocí skriptu newRef.sh
-        # 4. VOLITELNÉ: skript: uvod_kontrola.py - spíše pro mou kontrolu jestli mám vše připravené, nemusím spouštět
+        # 4. složka wisecondorx a v ní:
+               # ├── __init__.py
+               # ├── main.py                 # <--- Spouštěcí bod programu
+               # ├── convert_tools.py
+               # ├── predict_control.py
+               # ├── predict_tools.py
+               # ├── ... (všechny ostatní .py soubory ze složky src/wisecondorx z oficiálního repozitáře: https://github.com/CenterForMedicalGeneticsGhent/wisecondorX)
+               # └── include/                # Složka include
+               #     └── CBS.R               # Tvůj funkční R skript
+        # 5. VOLITELNÉ: skript: uvod_kontrola.py - spíše pro mou kontrolu jestli mám vše připravené, nemusím spouštět
         # Terminál otevři ve složce wisecondorx, kde máš uložen tento skript (Epi2me-wisecondorX.sh)
 
 # Před spuštěním:
@@ -79,9 +88,9 @@ WORK_DIR="$BASE_DIR/wisecondorX"
 mkdir -p "$WORK_DIR/pbs_outputs"
 
 # Vstupní data (.bam a .bai soubory)
-INPUT_BAM_DIR="$BASE_DIR/RESULTS/alignment_results"
-BAM_FILE="$RUN_INPUT_DIR/${BARCODE}.bam"
-BAI_FILE="$RUN_INPUT_DIR/${BARCODE}.bam.bai"
+INPUT_BAM_DIR="$BASE_DIR/${RUN_NUMBER}-newref-bam,bai"
+BAM_FILE="$RUN_INPUT_DIR/${BARCODE}.sorted.aligned.bam"
+BAI_FILE="$RUN_INPUT_DIR/${BARCODE}.sorted.aligned.bai"
 
 # Cesta k referenci
 REF_DIR="$WORK_DIR/references/reference_${DATUM}"
@@ -91,6 +100,8 @@ REF_SIZES="1000 500 100"
 OUTPUT_DIR="$BASE_DIR/RESULTS/Epi2me-wisecondorX_results"
 RUN_OUTPUT_DIR="$OUTPUT_DIR/Epi2me-wisecondorX_output_${RUN_NUMBER}"
 FINAL_OUTPUT_DIR="$RUN_OUTPUT_DIR/${RUN_NUMBER}-Epi2me_${BARCODE}"
+PLOTS_OUTPUT_DIR="$RUN_OUTPUT_DIR/PLOTS_${RUN_NUMBER}"
+
 # Uložení všech NPZ souborů do složky ALL_NPZ pro případné vytvoření nové reference
 NPZ_OUTPUT_DIR="$WORK_DIR/Epi2me-ALL_NPZ"
 
@@ -196,7 +207,7 @@ TMP_NPZ="${RUN_NUMBER}_${BARCODE}.npz"          # dočasný NPZ soubor ve scratc
 
 # KROK 1: Convert
 echo "Krok 1: Convert BAM to NPZ pro ${BARCODE}" | tee -a "$JOB_LOG"
-WisecondorX convert "./${LOCAL_BAM}" "./${TMP_BASE}"
+python3 $WORK_DIR/wisecondorx/main.py convert "./${LOCAL_BAM}" "./${TMP_BASE}"
 
 # KROK 2: Predict
 echo "Krok 2: Predict pro ${BARCODE}" | tee -a "$JOB_LOG"
@@ -211,7 +222,7 @@ for REF_SIZE in ${REF_SIZES}; do
     # Výsledek bude např. plots_1000kb/run1_barcode05_1000kb
 
     # Výstup v PNG
-    WisecondorX predict "./${TMP_NPZ}" "./${CURRENT_REF}" "${PREFIX}" \
+    python3 $WORK_DIR/wisecondorx/main.py predict "./${TMP_NPZ}" "./${CURRENT_REF}" "${PREFIX}" \
         --plot \
         --bed \
         --ylim "-1.5 1.0"
@@ -226,10 +237,14 @@ echo "Hotovo: ${BARCODE}" | tee -a "$JOB_LOG"
 echo "Kopírování výsledků zpět na storage" | tee -a "$JOB_LOG"
 
 mkdir -p "$FINAL_OUTPUT_DIR"
+mkdir -p "$PLOTS_OUTPUT_DIR"
 
 # Zkopíruje všechny tři složky s grafy do složky pro tento vzorek
 cp -r plots-Epi2me_* "$FINAL_OUTPUT_DIR/"
 cp "$JOB_LOG" "$FINAL_OUTPUT_DIR/Epi2me-wisecondorX_info.txt"
+
+# Přesun pouze grafů do složky {RUN_OUTPUT_DIR}_plots
+mv "$FINAL_OUTPUT_DIR/${RUN_NUMBER}_${BARCODE}" "$PLOTS_OUTPUT_DIR/"
 
 # Záloha původního konvertovaného .npz do složky ALL_NPZ pro případné vytvoření nové reference
 cp "$TMP_NPZ" "$NPZ_OUTPUT_DIR/"
