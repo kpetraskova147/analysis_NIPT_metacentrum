@@ -190,7 +190,6 @@ Na storage:
      data: cesta k nim: RESULTS/statistics_results/statistics_output_runX/runX-barcodeXX
          : lengths_run1_barcode01.txt (případně .hist - z Epi2me → upravit .txt na .hist)
          : pokud spouštím tuto analýzu na data, u kterých nebylo spuštěno dorado, můžeš upravit cestu a nahrát je jinam
-
      vytvoř složku FF_calculation a v ní:
          1. skript: FF_ratio_from_length.sh
 
@@ -203,7 +202,8 @@ Příkaz:
 ##### Analysis 
 Transfer data to the excel with data from Atila PCR. Create dot graph and Trade Line. Gain the Linear Regression Formula.
 
-![Dependence of the representation of the fetal fraction on the ratio of fetal and maternal fragments](image.png)
+<img width="968" height="621" alt="FF_calibration" src="https://github.com/user-attachments/assets/ffe51688-fc5e-4013-a759-481d2005f0aa" />
+
 
 Linear Regression Formula
 
