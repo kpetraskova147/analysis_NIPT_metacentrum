@@ -37,8 +37,14 @@ CORES=8         # cores = cpus
 BASE_DIR="/storage/brno12-cerit/home/petraskkar"
 
 INPUT_DIR="${BASE_DIR}/ALL_NPZ"
+
 OUTPUT_DIR="${BASE_DIR}/wisecondorX/references"
 FINAL_OUTPUT_DIR="${OUTPUT_DIR}/reference_${DATUM}"
+
+# Cesta k prostředí mambaforge, kde je nainstalován WisecondorX - lze zjistit příkazem `conda info --envs` nebo `conda env list` - najdu wisecondorX_env
+ENVIRONMENT_PATH="/storage/brno12-cerit/home/petraskkar/.conda/envs/wisecondorX_env"
+# Cesta k hlavnímu skriptu WisecondorX (main.py) v prostředí wisecondorX_env
+STORAGE_WISE_ENV="/storage/brno12-cerit/home/petraskkar/wisecondorX/WisecondorX-LAB-NIPT/wisecondorx/main.py"
 
 # Nastavení rozlišení reference (velikost binů v kb)
 # Pro WisecondorX se běžně používají hodnoty jako 1000 (1 Mb), 500 (500 kb), 100 (100 kb) atd.
@@ -82,7 +88,7 @@ if conda activate wisecondorX_env; then
 else
     echo "Prostředí nebylo nalezeno podle jména. Zkouším absolutní cestu..."
     # Záchranná brzda: použití absolutní cesty, kam se prostředí fyzicky nainstalovalo
-    if conda activate /auto/brno2/home/petraskkar/.conda/envs/wisecondorX_env; then
+    if conda activate $ENVIRONMENT_PATH; then
         echo "--- Prostředí úspěšně aktivováno pomocí absolutní cesty. ---"
     else
         echo "KRITICKÁ CHYBA: Prostředí se nepodařilo aktivovat ani absolutní cestou!" >&2
@@ -108,7 +114,7 @@ for REF in ${REF_SIZES}; do
     TMP_REF="tmp_out/reference_${REF}kb.npz"
     
     # WisecondorX newref používá *.npz ze scratche, ale výstup dává mimo dosah `*.npz`
-    WisecondorX newref *.npz "${TMP_REF}" \
+    python3 "${STORAGE_WISE_ENV}" newref *.npz "${TMP_REF}" \
         --binsize ${REF}000 \
         --cpus ${CORES}
         

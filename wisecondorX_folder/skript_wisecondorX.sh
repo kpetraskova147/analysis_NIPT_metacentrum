@@ -27,7 +27,7 @@
                 # !! je třeba instalovat před spuštěním analýzy příkazem: conda install --file environment.yml
         # 3. reference - složka references - složka references_${DATUM} se soubory "reference_${REF_SIZE}kb.npz"
                 # referenci mohu vytvořit pomocí skriptu newRef.sh
-        # 4. složka wisecondorx (ke stažení na: https://github.com/kpetraskova147/analysis_NIPT_metacentrum/tree/main/wisecondorX_folder/wisecondroX_NIPT_lab) a v ní:
+        # 4. složka wisecondorx (ke stažení na: https://github.com/kpetraskova147/WisecondorX-LAB-NIPT.git) a v ní:
                # ├── __init__.py
                # ├── main.py                 # <--- Spouštěcí bod programu
                # ├── convert_tools.py
@@ -116,6 +116,11 @@ NPZ_OUTPUT_DIR="$WORK_DIR/ALL_NPZ"
 RUN_LOG_DIR="$WORK_DIR/run_logs"
 CENTRAL_LOG="$RUN_LOG_DIR/wisecondorX_history.txt"
 
+# Cesta k prostředí mambaforge, kde je nainstalován WisecondorX - lze zjistit příkazem `conda info --envs` nebo `conda env list` - najdu wisecondorX_env
+ENVIRONMENT_PATH="/storage/brno12-cerit/home/petraskkar/.conda/envs/wisecondorX_env"
+# Cesta k hlavnímu skriptu WisecondorX (main.py) v prostředí wisecondorX_env
+STORAGE_WISE_ENV="/storage/brno12-cerit/home/petraskkar/wisecondorX/WisecondorX-LAB-NIPT/wisecondorx/main.py"
+
 mkdir -p "$OUTPUT_DIR"
 mkdir -p "$RUN_OUTPUT_DIR"
 mkdir -p "$NPZ_OUTPUT_DIR"
@@ -191,7 +196,7 @@ if conda activate wisecondorX_env; then
     echo "--- Prostředí wisecondorX_env úspěšně aktivováno. ---" | tee -a "$JOB_LOG"
 else
     echo "Prostředí nebylo nalezeno podle jména. Zkouším absolutní cestu..."
-    if conda activate /auto/brno2/home/petraskkar/.conda/envs/wisecondorX_env; then
+    if conda activate $ENVIRONMENT_PATH; then
         echo "--- Prostředí úspěšně aktivováno pomocí absolutní cesty. ---" | tee -a "$JOB_LOG"
     else
         echo "KRITICKÁ CHYBA: Prostředí se nepodařilo aktivovat ani absolutní cestou!" >&2
@@ -214,16 +219,20 @@ TMP_NPZ="${RUN_NUMBER}_${BARCODE}.npz"          # dočasný NPZ soubor ve scratc
 
 # KROK 1: Convert
 echo "Krok 1: Convert BAM to NPZ pro ${BARCODE}" | tee -a "$JOB_LOG"
-python3 $WORK_DIR/wisecondorx/main.py convert "./${LOCAL_BAM}" "./${TMP_BASE}"
+python3 "${STORAGE_WISE_ENV}" convert "./${LOCAL_BAM}" "./${TMP_BASE}"
 
 # KROK 2: Predict
 echo "Krok 2: Predict pro ${BARCODE}" | tee -a "$JOB_LOG"
 
 if [ -f "$HIST_FILE" ]; then
-    # Vytáhneme Ratio přímo z hist souboru
+    # Chytré vytažení Ratia (zvládá hlavičku "RL" i starý formát)
     RATIO=$(awk '{ 
-        if($1 >= 100 && $1 <= 150) { short += $3 } 
-        else if($1 >= 160 && $1 <= 200) { long += $3 } 
+        if ($1 == "RL") { len = $2; count = $3 }
+        else if ($1 ~ /^[0-9]+$/) { len = $1; count = $3 }
+        else { len = 0; count = 0 }
+
+        if(len >= 100 && len <= 150) { short += count } 
+        else if(len >= 160 && len <= 200) { long += count } 
     } 
     END { 
         if(long > 0) { printf "%.4f", short / long } 
@@ -265,7 +274,7 @@ for REF_SIZE in ${REF_SIZES}; do
     # Výsledek bude např. plots_1000kb/run1_barcode05_1000kb
 
     # Výstup v PNG
-    python3 $WORK_DIR/wisecondorx/main.py predict "./${TMP_NPZ}" "./${CURRENT_REF}" "${PREFIX}" \
+    python3 "${STORAGE_WISE_ENV}" predict "./${TMP_NPZ}" "./${CURRENT_REF}" "${PREFIX}" \
         --plot \
         --bed \
         --ylim "-1.5 1.0"
@@ -283,15 +292,17 @@ echo "Kopírování výsledků zpět na storage" | tee -a "$JOB_LOG"
 
 mkdir -p "$FINAL_OUTPUT_DIR"
 mkdir -p "$PLOTS_OUTPUT_DIR"
+mkdir -p "$PLOTS_OUTPUT_DIR/${RUN_NUMBER}_${BARCODE}"
 
-# Zkopíruje všechny tři složky s grafy a další soubory do složky pro tento vzorek
+# 1. Přesun POUZE grafů a aberration.bed souborů do oddělené složky PLOTS
+find plots_* -type f -name "*.png" -exec mv {} "$PLOTS_OUTPUT_DIR/${RUN_NUMBER}_${BARCODE}/" \;
+find plots_* -type f -name "*aberrations.bed" -exec mv {} "$PLOTS_OUTPUT_DIR/${RUN_NUMBER}_${BARCODE}/" \;
+
+# 2. Zkopíruje všechny tři složky s grafy a další soubory do složky pro tento vzorek
 cp -r plots_* "$FINAL_OUTPUT_DIR/"
 cp "$JOB_LOG" "$FINAL_OUTPUT_DIR/wisecondorX_info.txt"
 
-# Přesun pouze grafů do složky {RUN_OUTPUT_DIR}_plots
-mv "$FINAL_OUTPUT_DIR/${RUN_NUMBER}_${BARCODE}" "$PLOTS_OUTPUT_DIR/"
-
-# Záloha původního konvertovaného .npz do složky ALL_NPZ pro případné vytvoření nové reference
+# Záloha původního konvertovaného .npz pro případné vytvoření nové reference
 cp "$TMP_NPZ" "$NPZ_OUTPUT_DIR/"
 
 # =============================================================================
@@ -300,8 +311,8 @@ cp "$TMP_NPZ" "$NPZ_OUTPUT_DIR/"
 KOPIROVANI_OK=true
 
 for REF_SIZE in ${REF_SIZES}; do
-    # Zkontrolujeme existenci hlavního výsledkového souboru .bed v dané podsložce na storage
-    if [ ! -s "$FINAL_OUTPUT_DIR/plots_${REF_SIZE}kb/${RUN_NUMBER}_${BARCODE}_${REF_SIZE}kb_aberrations.bed" ]; then
+    # Kontrolujeme aberrations.bed v jeho NOVÉM umístění ve složce PLOTS
+    if [ ! -s "$PLOTS_OUTPUT_DIR/${RUN_NUMBER}_${BARCODE}/${RUN_NUMBER}_${BARCODE}_${REF_SIZE}kb_aberrations.bed" ]; then
         KOPIROVANI_OK=false
     fi
 done
