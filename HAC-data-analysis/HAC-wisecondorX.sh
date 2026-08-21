@@ -22,7 +22,7 @@
     # data: cesta k nim: RESULTS/basecalling_results/basecalling_output_run1/barcode01-xx/.pod5
         # pokud spouštím tuto analýzu na data, u kterých nebylo spuštěno dorado, můžeš upravit cestu a nahrát je jinam
     # vytvoř složku wisecondorX a v ní:
-        # 1. skript: skript_wisecondorX.sh 
+        # 1. skript: HAC_wisecondorX.sh 
         # 2. prostředí: environment.yml - pro vytvoření prostředí s verzemi knihoven, které se nebudou měnit (dobrá kooperace, stálé prostředí)
                 # !! je třeba instalovat před spuštěním analýzy příkazem: conda install --file environment.yml
         # 3. reference - složka references - složka references_${DATUM} se soubory "reference_${REF_SIZE}kb.npz"
@@ -105,9 +105,18 @@ PLOTS_OUTPUT_DIR="$RUN_OUTPUT_DIR/PLOTS_${RUN_NUMBER}"
 # Uložení všech NPZ souborů do složky ALL_NPZ pro případné vytvoření nové reference
 NPZ_OUTPUT_DIR="$WORK_DIR/HAC-ALL_NPZ"
 
+# Cesta k hist souboru pro aktuální vzorek
+HIST_FOLDER="$BASE_DIR/RESULTS/HAC-statistics_results/HAC-statistics_output_${RUN_NUMBER}/${RUN_NUMBER}_${BARCODE}"
+HIST_FILE="$HIST_FOLDER/HAC-lengths_${RUN_NUMBER}_${BARCODE}.txt""
+
 # Logy
 RUN_LOG_DIR="$WORK_DIR/HAC-run_logs"
 CENTRAL_LOG="$RUN_LOG_DIR/HAC-wisecondorX_history.txt"
+
+# Cesta k prostředí mambaforge, kde je nainstalován WisecondorX - lze zjistit příkazem `conda info --envs` nebo `conda env list` - najdu wisecondorX_env
+ENVIRONMENT_PATH="/storage/brno12-cerit/home/petraskkar/.conda/envs/wisecondorX_env"
+# Cesta k hlavnímu skriptu WisecondorX (main.py) v prostředí wisecondorX_env
+STORAGE_WISE_ENV="/storage/brno12-cerit/home/petraskkar/wisecondorX/WisecondorX-LAB-NIPT/wisecondorx/main.py"
 
 mkdir -p "$OUTPUT_DIR"
 mkdir -p "$RUN_OUTPUT_DIR"
@@ -184,7 +193,7 @@ if conda activate wisecondorX_env; then
     echo "--- Prostředí wisecondorX_env úspěšně aktivováno. ---" | tee -a "$JOB_LOG"
 else
     echo "Prostředí nebylo nalezeno podle jména. Zkouším absolutní cestu..."
-    if conda activate /auto/brno2/home/petraskkar/.conda/envs/wisecondorX_env; then
+    if conda activate $ENVIRONMENT_PATH; then
         echo "--- Prostředí úspěšně aktivováno pomocí absolutní cesty. ---" | tee -a "$JOB_LOG"
     else
         echo "KRITICKÁ CHYBA: Prostředí se nepodařilo aktivovat ani absolutní cestou!" >&2
@@ -207,26 +216,68 @@ TMP_NPZ="${RUN_NUMBER}_${BARCODE}.npz"          # dočasný NPZ soubor ve scratc
 
 # KROK 1: Convert
 echo "Krok 1: Convert BAM to NPZ pro ${BARCODE}" | tee -a "$JOB_LOG"
-python3 $WORK_DIR/wisecondorx/main.py convert "./${LOCAL_BAM}" "./${TMP_BASE}"
+python3 "${STORAGE_WISE_ENV}" convert "./${LOCAL_BAM}" "./${TMP_BASE}"
 
 # KROK 2: Predict
 echo "Krok 2: Predict pro ${BARCODE}" | tee -a "$JOB_LOG"
+
+if [ -f "$HIST_FILE" ]; then
+    # Chytré vytažení Ratia (zvládá hlavičku "RL" i starý formát)
+    RATIO=$(awk '{ 
+        if ($1 == "RL") { len = $2; count = $3 }
+        else if ($1 ~ /^[0-9]+$/) { len = $1; count = $3 }
+        else { len = 0; count = 0 }
+
+        if(len >= 100 && len <= 150) { short += count } 
+        else if(len >= 160 && len <= 200) { long += count } 
+    } 
+    END { 
+        if(long > 0) { printf "%.4f", short / long } 
+        else { printf "0.0000" } 
+    }' "$HIST_FILE")
+else
+    echo "KRITICKÁ CHYBA: Soubor $HIST_FILE nebyl nalezen! Analýza pro vzorek $BARCODE se ukončuje." | tee -a "$JOB_LOG"
+    exit 1
+fi
+
+echo ">> Zjištěný poměr (Ratio): $RATIO" | tee -a "$JOB_LOG"
+
+# -----------------------------------------------------------------------------
+# ZDE ZADEJ ROVNICI Z EXCELU (y = ax + b)
+# Příklad: Pokud v Excelu vyšlo y = 25.4x - 5.2, zadej SKLON="25.4" a POSUN="-5.2"
+# -----------------------------------------------------------------------------
+SKLON="0.5015"   # Doplň reálné číslo (a)
+POSUN="-0.0565"   # Doplň reálné číslo (b)
+
+# Matematický výpočet samotné FF (přes awk, pro práci s desetinnými čísly)
+MY_FF=$(awk -v r="$RATIO" -v s="$SKLON" -v p="$POSUN" 'BEGIN { 
+    result = (r * s) + p; 
+    if(result < 0) result = 0;     # Pojistka proti záporným číslům
+    printf "%.2f", result 
+}')
+
+echo ">> Vypočítaná fetální frakce: ${MY_FF} %" | tee -a "$JOB_LOG"
+
+# EXPORT DO SYSTÉMU (Tímto se hodnota předá upravenému R skriptu)
+export CURRENT_FF="$MY_FF"
 
 for REF_SIZE in ${REF_SIZES}; do
     echo "--- Počítám rozlišení: ${REF_SIZE} kb ---" | tee -a "$JOB_LOG"
     
     CURRENT_REF="reference_${REF_SIZE}kb.npz"
-    OUT_PLOTS_DIR="plots-HAC_${REF_SIZE}kb"
+    OUT_PLOTS_DIR="plots_${REF_SIZE}kb"
     mkdir -p "$OUT_PLOTS_DIR"
     PREFIX="${OUT_PLOTS_DIR}/${RUN_NUMBER}_${BARCODE}_${REF_SIZE}kb"
     # Výsledek bude např. plots_1000kb/run1_barcode05_1000kb
 
     # Výstup v PNG
-    python3 $WORK_DIR/wisecondorx/main.py predict "./${TMP_NPZ}" "./${CURRENT_REF}" "${PREFIX}" \
+    python3 "${STORAGE_WISE_ENV}" predict "./${TMP_NPZ}" "./${CURRENT_REF}" "${PREFIX}" \
         --plot \
         --bed \
         --ylim "-1.5 1.0"
 done
+
+unset CURRENT_FF
 
 echo "Hotovo: ${BARCODE}" | tee -a "$JOB_LOG"
 
@@ -238,15 +289,17 @@ echo "Kopírování výsledků zpět na storage" | tee -a "$JOB_LOG"
 
 mkdir -p "$FINAL_OUTPUT_DIR"
 mkdir -p "$PLOTS_OUTPUT_DIR"
+mkdir -p "$PLOTS_OUTPUT_DIR/${RUN_NUMBER}_${BARCODE}"
 
-# Zkopíruje všechny tři složky s grafy do složky pro tento vzorek
+# 1. Přesun POUZE grafů a aberration.bed souborů do oddělené složky PLOTS
+find plots_* -type f -name "*.png" -exec mv {} "$PLOTS_OUTPUT_DIR/${RUN_NUMBER}_${BARCODE}/" \;
+find plots_* -type f -name "*aberrations.bed" -exec mv {} "$PLOTS_OUTPUT_DIR/${RUN_NUMBER}_${BARCODE}/" \;
+
+# 2. Zkopíruje všechny tři složky s grafy a další soubory do složky pro tento vzorek
 cp -r plots_* "$FINAL_OUTPUT_DIR/"
-cp "$JOB_LOG" "$FINAL_OUTPUT_DIR/HAC-wisecondorX_info.txt"
+cp "$JOB_LOG" "$FINAL_OUTPUT_DIR/wisecondorX_info.txt"
 
-# Přesun pouze grafů do složky {RUN_OUTPUT_DIR}_plots
-mv "$FINAL_OUTPUT_DIR/${RUN_NUMBER}_${BARCODE}" "$PLOTS_OUTPUT_DIR/"
-
-# Záloha původního konvertovaného .npz do složky ALL_NPZ pro případné vytvoření nové reference
+# Záloha původního konvertovaného .npz pro případné vytvoření nové reference
 cp "$TMP_NPZ" "$NPZ_OUTPUT_DIR/"
 
 # =============================================================================
@@ -255,19 +308,19 @@ cp "$TMP_NPZ" "$NPZ_OUTPUT_DIR/"
 KOPIROVANI_OK=true
 
 for REF_SIZE in ${REF_SIZES}; do
-    # Zkontrolujeme existenci hlavního výsledkového souboru .bed v dané podsložce na storage
-    if [ ! -s "$FINAL_OUTPUT_DIR/plots-HAC_${REF_SIZE}kb/${RUN_NUMBER}-HAC_${BARCODE}_${REF_SIZE}kb_aberrations.bed" ]; then
+    # Kontrolujeme aberrations.bed v jeho NOVÉM umístění ve složce PLOTS
+    if [ ! -s "$PLOTS_OUTPUT_DIR/${RUN_NUMBER}_${BARCODE}/${RUN_NUMBER}_${BARCODE}_${REF_SIZE}kb_aberrations.bed" ]; then
         KOPIROVANI_OK=false
     fi
 done
 
-if [ "$KOPIROVANI_OK" = true ] && [ -f "$FINAL_OUTPUT_DIR/HAC-wisecondorX_info.txt" ]; then
+if [ "$KOPIROVANI_OK" = true ] && [ -f "$FINAL_OUTPUT_DIR/wisecondorX_info.txt" ]; then
     {
         echo "Hotovo: $RUN_NUMBER / $BARCODE dne: $(date +%Y-%m-%d)"
         echo "Kopírování všech rozlišení úspěšné. Mažu scratch."
-    } | tee -a "$FINAL_OUTPUT_DIR/HAC-wisecondorX_info.txt"
-    rm -rf "$SCRATCHDIR"/*
+    } | tee -a "$FINAL_OUTPUT_DIR/wisecondorX_info.txt"
+    clean_scratch
 else
-    echo "Chyba: Některé výsledky chybí, kopírování selhalo. Data zůstávají ve scratchi." | tee -a "$FINAL_OUTPUT_DIR/HAC-wisecondorX_info.txt" >&2
+    echo "Chyba: Některé výsledky chybí, kopírování selhalo. Data zůstávají ve scratchi." | tee -a "$FINAL_OUTPUT_DIR/wisecondorX_info.txt" >&2
     exit 1
 fi

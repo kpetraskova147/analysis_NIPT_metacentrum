@@ -5,7 +5,7 @@
 # Na storage: 
     # vytvoř složku RESULTS (pokud ještě není vytvořena)
     # data: cesta k nim: RESULTS/statistics_results/statistics_output_runX/runX-barcodeXX
-    #     : lengths_run1_barcode01.txt
+    #     : lengths_run1_barcode01.txt (případně .hist - z Epi2me → upravit .txt na .hist)
     #   pokud spouštím tuto analýzu na data, u kterých nebylo spuštěno dorado, můžeš upravit cestu a nahrát je jinam
     # vytvoř složku FF_calculation a v ní:
         # 1. skript: FF_ratio_from_length.sh
