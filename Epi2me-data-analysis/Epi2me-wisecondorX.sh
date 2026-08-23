@@ -114,9 +114,9 @@ RUN_LOG_DIR="$WORK_DIR/Epi2me-run_logs"
 CENTRAL_LOG="$RUN_LOG_DIR/Epi2me-wisecondorX_history.txt"
 
 # Cesta k prostředí mambaforge, kde je nainstalován WisecondorX - lze zjistit příkazem `conda info --envs` nebo `conda env list` - najdu wisecondorX_env
-ENVIRONMENT_PATH="/storage/brno12-cerit/home/petraskkar/.conda/envs/wisecondorX_env"
+ENVIRONMENT_PATH="/storage/brno2/home/petraskkar/.conda/envs/wisecondorX_env"
 # Cesta k hlavnímu skriptu WisecondorX (main.py) v prostředí wisecondorX_env
-STORAGE_WISE_ENV="/storage/brno12-cerit/home/petraskkar/wisecondorX/WisecondorX-LAB-NIPT/wisecondorx/main.py"
+STORAGE_WISE_ENV="/storage/brno12-cerit/home/petraskkar/wisecondorX/WisecondorX-LAB-NIPT/wisecondorx"
 
 mkdir -p "$OUTPUT_DIR"
 mkdir -p "$RUN_OUTPUT_DIR"
@@ -267,10 +267,13 @@ for REF_SIZE in ${REF_SIZES}; do
     # Výsledek bude např. plots_1000kb/run1_barcode05_1000kb
 
     # Výstup v PNG
-    python3 "${STORAGE_WISE_ENV}" predict "./${TMP_NPZ}" "./${CURRENT_REF}" "${PREFIX}" \
+    python3 "${STORAGE_WISE_ENV}/main.py" predict "./${TMP_NPZ}" "./${CURRENT_REF}" "${PREFIX}" \
         --plot \
         --bed \
         --ylim "-1.5 1.0"
+    # Volání mého R skriptu pro vykreslení grafů
+    Rscript "${STORAGE_WISE_ENV}/plotter.R" \
+        --infile "${PREFIX}_CBS_tmp_01.json"
 done
 
 unset CURRENT_FF

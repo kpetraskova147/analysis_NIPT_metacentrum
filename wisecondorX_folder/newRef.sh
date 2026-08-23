@@ -44,7 +44,7 @@ FINAL_OUTPUT_DIR="${OUTPUT_DIR}/reference_${DATUM}"
 # Cesta k prostředí mambaforge, kde je nainstalován WisecondorX - lze zjistit příkazem `conda info --envs` nebo `conda env list` - najdu wisecondorX_env
 ENVIRONMENT_PATH="/storage/brno12-cerit/home/petraskkar/.conda/envs/wisecondorX_env"
 # Cesta k hlavnímu skriptu WisecondorX (main.py) v prostředí wisecondorX_env
-STORAGE_WISE_ENV="/storage/brno12-cerit/home/petraskkar/wisecondorX/WisecondorX-LAB-NIPT/wisecondorx/main.py"
+STORAGE_WISE_ENV="/storage/brno12-cerit/home/petraskkar/wisecondorX/WisecondorX-LAB-NIPT/wisecondorx"
 
 # Nastavení rozlišení reference (velikost binů v kb)
 # Pro WisecondorX se běžně používají hodnoty jako 1000 (1 Mb), 500 (500 kb), 100 (100 kb) atd.
@@ -114,7 +114,7 @@ for REF in ${REF_SIZES}; do
     TMP_REF="tmp_out/reference_${REF}kb.npz"
     
     # WisecondorX newref používá *.npz ze scratche, ale výstup dává mimo dosah `*.npz`
-    python3 "${STORAGE_WISE_ENV}" newref *.npz "${TMP_REF}" \
+    python3 "${STORAGE_WISE_ENV}/main.py" newref *.npz "${TMP_REF}" \
         --binsize ${REF}000 \
         --cpus ${CORES}
         
