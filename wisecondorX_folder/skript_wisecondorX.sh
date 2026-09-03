@@ -77,6 +77,7 @@ if [ -z "${PBS_ARRAY_INDEX:-}" ]; then
 fi
 
 BARCODE=$(printf "barcode%02d" "$PBS_ARRAY_INDEX")  # vytvoří název barcode01, barcode02, ... podle indexu pole
+export BARCODE
 
 # =============================================================================
 # 1. NASTAVENÍ UŽIVATELE (UPRAV POUZE TUTO ČÁST)
@@ -98,16 +99,19 @@ BAI_FILE="$RUN_INPUT_DIR/${RUN_NUMBER}_${BARCODE}.bam.bai"
 # Cesta k hist souboru pro aktuální vzorek
 HIST_FOLDER="$BASE_DIR/RESULTS/statistics_results/statistics_output_${RUN_NUMBER}/${RUN_NUMBER}_${BARCODE}"
 HIST_FILE="$HIST_FOLDER/lengths_${RUN_NUMBER}_${BARCODE}.txt"
+NANOSTAT_FILE="$HIST_FOLDER/nanostat_${RUN_NUMBER}_${BARCODE}.txt"
 
 # Cesta k referenci
 REF_DIR="$WORK_DIR/references/reference_${DATUM}"
 REF_SIZES="1000 500 100"
 
 # Výstupní složka pro výsledky WisecondorX (NPZ a grafy)
-OUTPUT_DIR="$BASE_DIR/RESULTS/wisecondorX_results"
-RUN_OUTPUT_DIR="$OUTPUT_DIR/wisecondorX_output_${RUN_NUMBER}"
+OUTPUT_DIR="$BASE_DIR/RESULTS"
+RUN_OUTPUT_DIR="$OUTPUT_DIR/wisecondorX_results/wisecondorX_output_${RUN_NUMBER}"
 FINAL_OUTPUT_DIR="$RUN_OUTPUT_DIR/${RUN_NUMBER}_${BARCODE}"
 PLOTS_OUTPUT_DIR="$RUN_OUTPUT_DIR/PLOTS_${RUN_NUMBER}"
+EVALUATION_DIR="$OUTPUT_DIR/{1-EVALUATION}/${RUN_NUMBER}_evaluation/${BARCODE}_${RUN_NUMBER}"
+PLOTS_EVALUATION="$EVALUATION_DIR/PLOTS_$RUN_NUMBER"
 
 # Uložení všech NPZ souborů do složky ALL_NPZ pro případné vytvoření nové reference
 NPZ_OUTPUT_DIR="$WORK_DIR/ALL_NPZ"
@@ -117,7 +121,8 @@ RUN_LOG_DIR="$WORK_DIR/run_logs"
 CENTRAL_LOG="$RUN_LOG_DIR/wisecondorX_history.txt"
 
 # Cesta k prostředí mambaforge, kde je nainstalován WisecondorX - lze zjistit příkazem `conda info --envs` nebo `conda env list` - najdu wisecondorX_env
-ENVIRONMENT_PATH="/storage/brno2/home/petraskkar/.conda/envs/wisecondorX_env"
+ENVIRONMENT_PATH="/storage/brno12-cerit/home/petraskkar/conda_envs/wisecondorX_env"
+
 # Cesta k hlavnímu skriptu WisecondorX (main.py) v prostředí wisecondorX_env
 STORAGE_WISE_ENV="/storage/brno12-cerit/home/petraskkar/wisecondorX/WisecondorX-LAB-NIPT/wisecondorx"
 
@@ -254,15 +259,21 @@ POSUN="-0.0565"   # Doplň reálné číslo (b)
 
 # Matematický výpočet samotné FF (přes awk, pro práci s desetinnými čísly)
 MY_FF=$(awk -v r="$RATIO" -v s="$SKLON" -v p="$POSUN" 'BEGIN { 
-    result = (r * s) + p; 
-    if(result < 0) result = 0;     # Pojistka proti záporným číslům
-    printf "%.2f", result 
+    raw_ff = (r * s) + p; 
+    if(raw_ff < 0) raw_ff = 0;     # Pojistka proti záporným číslům
+    ff_percent = raw_ff * 100;      # Převod na procenta
+    if(ff_percent < 0) ff_percent = 0;
+    printf "%.2f", ff_percent
 }')
 
+echo ">> Zjištěný poměr (Ratio): $RATIO" | tee -a "$JOB_LOG"
 echo ">> Vypočítaná fetální frakce: ${MY_FF} %" | tee -a "$JOB_LOG"
 
 # EXPORT DO SYSTÉMU (Tímto se hodnota předá upravenému R skriptu)
 export CURRENT_FF="$MY_FF"
+
+# Zvol rozložení legendy: "bottom" (pod boxplotem) nebo "right" (vpravo vedle boxplotu)
+export LEGEND_PLACEMENT="bottom"
 
 for REF_SIZE in ${REF_SIZES}; do
     echo "--- Počítám rozlišení: ${REF_SIZE} kb ---" | tee -a "$JOB_LOG"
@@ -279,8 +290,6 @@ for REF_SIZE in ${REF_SIZES}; do
         --bed \
         --ylim "-1.5 1.0"
     # Volání mého R skriptu pro vykreslení grafů
-    Rscript "${STORAGE_WISE_ENV}/plotter.R" \
-        --infile "${PREFIX}_CBS_tmp_01.json"
     done
 
 unset CURRENT_FF
@@ -295,38 +304,83 @@ echo "Kopírování výsledků zpět na storage" | tee -a "$JOB_LOG"
 
 mkdir -p "$FINAL_OUTPUT_DIR"
 mkdir -p "$PLOTS_OUTPUT_DIR"
-mkdir -p "$PLOTS_OUTPUT_DIR/${RUN_NUMBER}_${BARCODE}"
+mkdir -p "$EVALUATION_DIR"
+mkdir -p "$PLOTS_EVALUATION"
 
-# 1. Přesun POUZE grafů a aberration.bed souborů do oddělené složky PLOTS
-find plots_* -type f -name "*.png" -exec mv {} "$PLOTS_OUTPUT_DIR/${RUN_NUMBER}_${BARCODE}/" \;
-find plots_* -type f -name "*aberrations.bed" -exec mv {} "$PLOTS_OUTPUT_DIR/${RUN_NUMBER}_${BARCODE}/" \;
+# 1. Přesun a přejmenování celých složek s grafy + přesun aberration.bed
+for REF_SIZE in ${REF_SIZES}; do
+    # Názvy, jak je vygeneroval WisecondorX ve scratchi
+    ORIG_PLOTS="plots_${REF_SIZE}kb/${RUN_NUMBER}_${BARCODE}_${REF_SIZE}kb.plots"
+    ORIG_BED="plots_${REF_SIZE}kb/${RUN_NUMBER}_${BARCODE}_${REF_SIZE}kb_aberrations.bed"
 
-# 2. Zkopíruje všechny tři složky s grafy a další soubory do složky pro tento vzorek
+    # Pokud složka s grafy existuje, přesune se celá a rovnou se přejmenuje
+    if [ -d "$ORIG_PLOTS" ]; then
+        mv "$ORIG_PLOTS" "$PLOTS_OUTPUT_DIR/${REF_SIZE}kb_${RUN_NUMBER}_${BARCODE}.plots"
+    fi
+
+    # Přesun genome_wide.png - 1000kb do více přístupné složky
+    if [ "$REF_SIZE" == "1000" ] && [ -f "$PLOTS_OUTPUT_DIR/1000kb_${RUN_NUMBER}_${BARCODE}.plots/genome_wide.png" ]; then
+        mv "$PLOTS_OUTPUT_DIR/1000kb_${RUN_NUMBER}_${BARCODE}.plots/genome_wide.png" "$EVALUATION_DIR/1000kb_genome_${RUN_NUMBER}_${BARCODE}.png"
+    fi
+    
+    if [ -d "$PLOTS_OUTPUT_DIR/${REF_SIZE}kb_${RUN_NUMBER}_${BARCODE}.plots" ]; then
+        mv "$PLOTS_OUTPUT_DIR/${REF_SIZE}kb_${RUN_NUMBER}_${BARCODE}.plots" "$PLOTS_EVALUATION"
+    fi
+
+    # Přesun souboru aberrations.bed (název zůstává stejný)
+    if [ -f "$ORIG_BED" ]; then
+        mv "$ORIG_BED" "$EVALUATION_DIR"
+    fi
+done
+
+# 2. Zkopíruje zbytek dat do hlavní výstupní složky pro tento vzorek
 cp -r plots_* "$FINAL_OUTPUT_DIR/"
 cp "$JOB_LOG" "$FINAL_OUTPUT_DIR/wisecondorX_info.txt"
 
 # Záloha původního konvertovaného .npz pro případné vytvoření nové reference
 cp "$TMP_NPZ" "$NPZ_OUTPUT_DIR/"
 
+# Přesun dat ze statistiky do evaluation složky
+cp "${NANOSTAT_FILE}" "$EVALUATION_DIR/"
+cp "${HIST_FOLDER}/plots_${RUN_NUMBER}_${BARCODE}/cfDNA_log_histogram.png" "$EVALUATION_DIR/cfDNA_length_${RUN_NUMBER}_${BARCODE}.png"
+cp "${HIST_FOLDER}/NanoPlot-report.html" "$EVALUATION_DIR/NanoPlot-report_${RUN_NUMBER}_${BARCODE}.html"
+
 # =============================================================================
 # 7. KONTROLA ÚSPĚŠNÉHO ZKOPÍROVÁNÍ (pro všechna 3 rozlišení)
 # =============================================================================
 KOPIROVANI_OK=true
 
+# 1. Kontrola pro různé REF_SIZES
 for REF_SIZE in ${REF_SIZES}; do
-    # Kontrolujeme aberrations.bed v jeho NOVÉM umístění ve složce PLOTS
-    if [ ! -s "$PLOTS_OUTPUT_DIR/${RUN_NUMBER}_${BARCODE}/${RUN_NUMBER}_${BARCODE}_${REF_SIZE}kb_aberrations.bed" ]; then
+    # Kontrolujeme aberrations.bed v jeho NOVÉM umístění ve složce EVALUATION
+    if [ ! -s "$EVALUATION_DIR/${RUN_NUMBER}_${BARCODE}_${REF_SIZE}kb_aberrations.bed" ]; then
         KOPIROVANI_OK=false
+    fi
+done
+
+# Kontrola dalších souborů
+STATIC_FILES=(
+    "$EVALUATION_DIR/1000kb_genome_${RUN_NUMBER}_${BARCODE}.png"
+    "$EVALUATION_DIR/cfDNA_length_${RUN_NUMBER}_${BARCODE}.png"
+    "$EVALUATION_DIR/nanostat_${RUN_NUMBER}_${BARCODE}.txt"
+    "$EVALUATION_DIR/NanoPlot-report.html"
+    )
+    
+for CHECK_FILES in "${STATIC_FILES[@]}"; do
+    if [ ! -f "$CHECK_FILES" ]; then
+        KOPIROVANI_OK=false
+        echo "Chybí soubor: $(basename "$CHECK_FILES")" >> "$FINAL_OUTPUT_DIR/wisecondorX_info.txt"
     fi
 done
 
 if [ "$KOPIROVANI_OK" = true ] && [ -f "$FINAL_OUTPUT_DIR/wisecondorX_info.txt" ]; then
     {
         echo "Hotovo: $RUN_NUMBER / $BARCODE dne: $(date +%Y-%m-%d)"
-        echo "Kopírování všech rozlišení úspěšné. Mažu scratch."
+        echo "Kopírování všech výsledků úspěšné. Mažu scratch."
     } | tee -a "$FINAL_OUTPUT_DIR/wisecondorX_info.txt"
+    
     clean_scratch
 else
-    echo "Chyba: Některé výsledky chybí, kopírování selhalo. Data zůstávají ve scratchi." | tee -a "$FINAL_OUTPUT_DIR/wisecondorX_info.txt" >&2
+    echo "KRITICKÁ CHYBA: Některé výsledky chybí, kopírování selhalo. Data zůstávají chráněna ve scratchi!" | tee -a "$FINAL_OUTPUT_DIR/wisecondorX_info.txt" >&2
     exit 1
 fi
