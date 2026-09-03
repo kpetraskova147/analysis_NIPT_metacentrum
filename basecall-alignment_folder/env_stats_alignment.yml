@@ -1,12 +1,15 @@
 name: env_stats_alignment
 channels:
- - bioconda
- - conda-forge
- - defaults
+  - conda-forge
+  - bioconda
+  - nodefaults
 dependencies:
- - python=3.11
- - nanostat 
- - mosdepth 
- - nanoplot 
- - multiqc 
- - samtools
+  - python=3.11.9
+  - samtools=1.20
+  - mosdepth=0.3.8
+  - nanostat=1.6.0
+  - nanoplot=1.42.0
+  - multiqc=1.22.2
+  - matplotlib
+  - numpy
+  - python-kaleido=0.2.1
