@@ -42,7 +42,8 @@ OUTPUT_DIR="${BASE_DIR}/wisecondorX/references"
 FINAL_OUTPUT_DIR="${OUTPUT_DIR}/reference_${DATUM}"
 
 # Cesta k prostředí mambaforge, kde je nainstalován WisecondorX - lze zjistit příkazem `conda info --envs` nebo `conda env list` - najdu wisecondorX_env
-ENVIRONMENT_PATH="/storage/brno12-cerit/home/petraskkar/.conda/envs/wisecondorX_env"
+ENVIRONMENT_PATH="/storage/brno12-cerit/home/petraskkar/conda_envs/wisecondorX_env"
+
 # Cesta k hlavnímu skriptu WisecondorX (main.py) v prostředí wisecondorX_env
 STORAGE_WISE_ENV="/storage/brno12-cerit/home/petraskkar/wisecondorX/WisecondorX-LAB-NIPT/wisecondorx"
 
