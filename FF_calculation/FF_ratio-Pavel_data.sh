@@ -22,13 +22,13 @@ echo "Začínám zpracovávat .hist soubory..." >> "$LOG_FILE"
 echo "Sample,Ratio" > "$OUTPUT_CSV"
 
 # Cyklus projde všechny soubory končící na .hist v zadané složce
-for file in "$INPUT_DIR"/*.hist; do
-    
+for file in "$INPUT_DIR"/*hist*; do
+
     # Pojistka: pokud by složka byla prázdná, cyklus se ukončí
     [ -e "$file" ] || continue
     
     # Vytáhne čistý název vzorku bez cesty a bez koncovky .hist
-    SAMPLE_NAME=$(basename "$file" .hist)
+    SAMPLE_NAME=$(basename "$file" | sed 's/\.hist.*//')
     
     # Výpočet poměru pomocí tvého awk příkazu
     RATIO=$(awk '{ 
