@@ -39,7 +39,7 @@ KIT="SQK-NBD114-24"
 
 # =============================================================================
 # 3. PŘESUN DO SCRATCHE
-# =============================================================================
+# ============================================================================
 
 cd $SCRATCHDIR
 cp -r $DORADO_DIR $SCRATCHDIR/
@@ -51,8 +51,7 @@ mkdir -p $SCRATCHDIR/demultiplexed
 # =============================================================================
 echo "Rozděluji data podle hotových štítků..."
 "$LOCAL_DORADO_BIN" demux \
-    --emit-fastq \
-#    --output-dir "$SCRATCHDIR/demultiplexed" \
+    --emit-fastq
     "$SCRATCHDIR/fast-unaligned_barcoded.bam"
 
 # =============================================================================
