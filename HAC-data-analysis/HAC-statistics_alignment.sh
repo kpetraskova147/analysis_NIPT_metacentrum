@@ -3,8 +3,8 @@
 # PBS HLAVIČKA - STATISTIKY - mosdepth a nanostat
 # =============================================================================
 #PBS -N HAC-Stats_Mosdepth_Nano
-#PBS -l select=1:ncpus=8:mem=16gb:scratch_local=40gb
-#PBS -l walltime=2:00:00
+#PBS -l select=1:ncpus=8:mem=32gb:scratch_local=40gb
+#PBS -l walltime=4:00:00
 #PBS -q default
 #PBS -j oe
 #PBS -m ae
@@ -62,19 +62,19 @@ BARCODE=$(printf "barcode%02d" "$PBS_ARRAY_INDEX")
 # =============================================================================
 BASE_DIR="/storage/brno12-cerit/home/petraskkar"
 
-mkdir -p "$BASE_DIR/alignment/HAC-pbs_outputs_statistics"
+mkdir -p "$BASE_DIR/alignment/pbs_outputs_statistics"
 
 # Vstup nyní bere z minulé složky alignmentu (BAM soubory)
-BAM_INPUT_DIR="$BASE_DIR/RESULTS/HAC-alignment_results/HAC-alignment_output_${RUN_NUMBER}/${RUN_NUMBER}-HAC_${BARCODE}"
-INPUT_BAM="$BAM_INPUT_DIR/${RUN_NUMBER}-HAC_${BARCODE}.bam"
-INPUT_BAI="$BAM_INPUT_DIR/${RUN_NUMBER}-HAC_${BARCODE}.bam.bai"
+BAM_INPUT_DIR="$BASE_DIR/RESULTS/HAC-alignment_results/HAC-alignment_output_${RUN_NUMBER}"
+INPUT_BAM="$BAM_INPUT_DIR/${RUN_NUMBER}_${BARCODE}.bam"
+INPUT_BAI="$BAM_INPUT_DIR/${RUN_NUMBER}_${BARCODE}.bam.bai"
 
 # Výsledky ze statistiky
 STATS_OUTPUT_DIR="$BASE_DIR/RESULTS/HAC-statistics_results"
 RUN_STATS_OUTPUT_DIR="$STATS_OUTPUT_DIR/HAC-statistics_output_${RUN_NUMBER}"
 FINAL_stats_OUTPUT_DIR="$RUN_STATS_OUTPUT_DIR/${RUN_NUMBER}-HAC_${BARCODE}"
 
-LOG_DIR="$BASE_DIR/alignment/HAC-run_logs_statistics"
+LOG_DIR="$BASE_DIR/alignment/run_logs_statistics"
 CENTRAL_LOG="$LOG_DIR/HAC-alignment_statistics_history.txt"
 
 mkdir -p "$LOG_DIR" 
@@ -116,7 +116,7 @@ conda activate $BASE_DIR/conda_envs/env_stats_alignment
 # 4. PŘESUN DO SCRATCHE
 # =============================================================================
 cd "$SCRATCHDIR"
-JOB_LOG="$SCRATCHDIR/statistics_alignment_info.txt"
+JOB_LOG="$SCRATCHDIR/HAC-statistics_alignment_info.txt"
 echo "[1/3] Kopíruji BAM a BAI do scratche..." > "$JOB_LOG"
 
 cp "$INPUT_BAM" ./
@@ -157,6 +157,9 @@ LENGTH_FILE="lengths_${SAMPLE_NAME}.txt"
 QUALITY_COVERAGE_FILE="quality_coverage_${SAMPLE_NAME}.txt"
 NANOSTAT_FILE="nanostat_${SAMPLE_NAME}.txt"
 MOSDEPTH_PREFIX="coverage_${SAMPLE_NAME}"
+PLOTS_DIR="plots_${SAMPLE_NAME}"
+
+mkdir -p "$PLOTS_DIR"
 
 # --- A) STATISTIKY PRO FETÁLNÍ FRAKCI ---
 samtools stats "$TMP_BAM" > full_stats.tmp
@@ -167,8 +170,65 @@ grep -E "^(SN|CO|FFQ)" full_stats.tmp > $QUALITY_COVERAGE_FILE
 NanoStat --bam "$TMP_BAM" -t 8 > $NANOSTAT_FILE
 mosdepth -n -t 8 "$MOSDEPTH_PREFIX" "$TMP_BAM"
 
-# --- C) VIZUALIZACE (NanoPlot) ---
-NanoPlot --bam "$TMP_BAM" -t 8 --plots dot --loglength -o "plots_${SAMPLE_NAME}"
+# --- C) NANOSTAT / NANOPLOT REPORT ---
+# Spustí NanoPlot a vytvoří kompletní HTML report i standardní grafy
+NanoPlot --bam "$TMP_BAM" -t 8 --plots dot --loglength -o "$PLOTS_DIR"
+
+# --- D) VLASTNÍ CÍLENÝ cfDNA LOG HISTOGRAM (50 - 1000 bp) ---
+export LENGTH_FILE SAMPLE_NAME PLOTS_DIR
+python3 - << 'EOF'
+import os
+import matplotlib.pyplot as plt
+import numpy as np
+
+length_file = os.environ.get("LENGTH_FILE")
+sample_name = os.environ.get("SAMPLE_NAME")
+plots_dir = os.environ.get("PLOTS_DIR")
+
+lengths, counts = [], []
+
+with open(length_file, "r") as f:
+    for line in f:
+        parts = line.strip().split("\t")
+        if len(parts) >= 3 and parts[0] == "RL":
+            lengths.append(int(parts[1]))
+            counts.append(int(parts[2]))
+
+lengths = np.array(lengths)
+counts = np.array(counts)
+
+# Omezení pouze na relevantní cfDNA oblast (50 až 1000 bp)
+mask = (lengths >= 50) & (lengths <= 1000)
+x = lengths[mask]
+y = counts[mask]
+
+plt.figure(figsize=(12, 6), dpi=300)
+
+# Logaritmická osa X, ale s jemnými sloupci po 1 bp
+plt.bar(x, y, width=x * 0.008, color="#3ea38f", edgecolor="none", align="center")
+plt.xscale("log")
+
+# Popisky klíčových délek přímo na ose
+ticks = [50, 100, 143, 166, 200, 330, 500, 1000]
+plt.xticks(ticks, [str(t) for t in ticks], fontsize=10)
+plt.minorticks_off()
+
+# Biologické reference
+plt.axvline(143, color="#d95f02", linestyle="--", linewidth=1.2, label="Fetal sub-peak (~143 bp)")
+plt.axvline(166, color="#7570b3", linestyle="--", linewidth=1.2, label="Mono-nukleosom (~166 bp)")
+plt.axvline(330, color="#444444", linestyle=":", linewidth=1.2, label="Di-nukleosom (~330 bp)")
+
+plt.title(f"cfDNA Read Length Distribution (Log Scale) - {sample_name}", fontsize=13, fontweight="bold")
+plt.xlabel("Read length (bp)", fontsize=11)
+plt.ylabel("Number of reads", fontsize=11)
+plt.xlim(50, 1000)
+plt.grid(axis="y", linestyle=":", alpha=0.6)
+plt.legend(loc="upper right", frameon=True)
+
+plt.tight_layout()
+plt.savefig(f"{plots_dir}/cfDNA_log_histogram.png")
+plt.close()
+EOF
 
 # popis:
 # SN (Summary - obsahuje error rate/accuracy)
@@ -177,6 +237,26 @@ NanoPlot --bam "$TMP_BAM" -t 8 --plots dot --loglength -o "plots_${SAMPLE_NAME}"
 # NanoStat (vytvoří soubor s celkovým přehledem kvality readů)
 # Mosdepth (vytvoří soubory s výpočtem pokrytí pro MultiQC)
 # NanoPlot (vytvoří grafy pro délku readů a kvalitu)
+
+# --- D) PROMAZÁNÍ NEPOTŘEBNÝCH SOUBORŮ Z PLOTS_DIR ---
+# Přesuneme jen požadované soubory do dočasné složky, zbytek smažeme
+mkdir -p "${PLOTS_DIR}_clean"
+
+# 1. NanoStats.txt
+cp "$PLOTS_DIR/NanoStats.txt" "${PLOTS_DIR}_clean/NanoStats-HAC.txt" 2>/dev/null || true
+
+# 2. NanoPlot-report.html
+cp "$PLOTS_DIR/NanoPlot-report.html" "${PLOTS_DIR}_clean/NanoPlot-report-HAC.html" 2>/dev/null || true
+
+# 3. LengthvsQualityScatterPlot
+cp "$PLOTS_DIR"/LengthvsQualityScatterPlot*dot.png "${PLOTS_DIR}_clean/" 2>/dev/null || true
+
+# 4. cfDNA_log_histogram.png
+cp "$PLOTS_DIR/cfDNA_log_histogram.png" "${PLOTS_DIR}_clean/cfDNA-HAC_log_histogram.png" 2>/dev/null || true
+
+# Nahradíme původní složku vyčištěnou složkou
+rm -rf "$PLOTS_DIR"
+mv "${PLOTS_DIR}_clean" "$PLOTS_DIR"
 
 # =============================================================================
 # 6. KONTROLA VÝSLEDKU STATISTIKY
@@ -188,6 +268,9 @@ FILES_TO_CHECK=(
     "$QUALITY_COVERAGE_FILE"
     "$NANOSTAT_FILE"
     "$MOSDEPTH_PREFIX.mosdepth.summary.txt"
+    "$PLOTS_DIR/NanoPlot-report-HAC.html"
+    "$PLOTS_DIR/NanoStats-HAC.txt"
+    "$PLOTS_DIR/cfDNA-HAC_log_histogram.png"
 )
 
 for FILE in "${FILES_TO_CHECK[@]}"; do
@@ -204,12 +287,16 @@ echo "[3/3] Kopíruji výsledky do $FINAL_stats_OUTPUT_DIR..." | tee -a "$JOB_LO
 
 mkdir -p "$FINAL_stats_OUTPUT_DIR"
 
-cp $LENGTH_FILE "$FINAL_stats_OUTPUT_DIR/"
-cp $QUALITY_COVERAGE_FILE "$FINAL_stats_OUTPUT_DIR/"
-cp $NANOSTAT_FILE "$FINAL_stats_OUTPUT_DIR/"
-cp $MOSDEPTH_PREFIX.mosdepth.summary.txt "$FINAL_stats_OUTPUT_DIR/"
-cp -r "plots_${SAMPLE_NAME}" "$FINAL_stats_OUTPUT_DIR/"
-cp $JOB_LOG "$FINAL_stats_OUTPUT_DIR/"
+# Samtools, Mosdepth a NanoStat
+cp "$LENGTH_FILE" "$FINAL_stats_OUTPUT_DIR/"
+cp "$QUALITY_COVERAGE_FILE" "$FINAL_stats_OUTPUT_DIR/"
+cp "$NANOSTAT_FILE" "$FINAL_stats_OUTPUT_DIR/"
+cp "$MOSDEPTH_PREFIX.mosdepth.summary.txt" "$FINAL_stats_OUTPUT_DIR/"
 
-echo "ÚSPĚCH STATISTIKY: HOTOVO!" | tee -a "$FINAL_stats_OUTPUT_DIR/statistics_alignment_info.txt"
+# Kopírování vyčištěné složky plots_${SAMPLE_NAME} (obsahuje pouze vybrané soubory)
+cp -r "$PLOTS_DIR" "$FINAL_stats_OUTPUT_DIR/"
+
+cp "$JOB_LOG" "$FINAL_stats_OUTPUT_DIR/"
+
+echo "ÚSPĚCH STATISTIKY: HOTOVO!" | tee -a "$FINAL_stats_OUTPUT_DIR/HAC-statistics_alignment_info.txt"
 rm -rf "$SCRATCHDIR"/*

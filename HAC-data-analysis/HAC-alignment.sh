@@ -65,7 +65,8 @@ FASTQ_FILE=".fastq.gz"
 mkdir -p "pbs_outputs"
 
 # Umístění vstupních dat - FASTQ soubory (výsledek ze sekvenace)
-INPUT_DIR="$BASE_DIR/${RUN_NUMBER}_fastq_pass/$BARCODE"
+INPUT_ROOT="$BASE_DIR/RESULTS/HAC-basecall_results"
+INPUT_DIR="$INPUT_ROOT/HAC-basecall_output_${RUN_NUMBER}"
 
 # Umístění referenčního genomu (komprimovaný FASTA soubor)
 REF_GENOME="$BASE_DIR/alignment/reference_genome_Hg38/hg38.mmi"
@@ -73,17 +74,16 @@ REF_GENOME="$BASE_DIR/alignment/reference_genome_Hg38/hg38.mmi"
 # Umístění pro výsledky z alignmetu - BAM soubory
 BAM_OUTPUT_DIR="$BASE_DIR/RESULTS"
 RUN_OUTPUT_DIR="$BAM_OUTPUT_DIR/HAC-alignment_results"
-RUN_bam_OUTPUT_DIR="$RUN_OUTPUT_DIR/HAC-alignment_output_${RUN_NUMBER}"
-FINAL_bam_OUTPUT_DIR="$RUN_bam_OUTPUT_DIR/${RUN_NUMBER}-HAC_${BARCODE}"
+FINAL_bam_OUTPUT_DIR="$RUN_OUTPUT_DIR/HAC-alignment_output_${RUN_NUMBER}"
 
 # Logy z alignmetu
-LOG_DIR="$BASE_DIR/HAC-alignment/run_logs"
+LOG_DIR="$BASE_DIR/alignment/run_logs"
 CENTRAL_LOG="$LOG_DIR/HAC-alignment_history.txt"
 
 mkdir -p "$LOG_DIR" 
 mkdir -p "$BAM_OUTPUT_DIR"
 mkdir -p "$RUN_OUTPUT_DIR" 
-mkdir -p "$RUN_bam_OUTPUT_DIR"
+mkdir -p "$FINAL_bam_OUTPUT_DIR"
 
 # =============================================================================
 # 2. KONTROLA VSTUPNÍCH DAT A PROSTŘEDÍ
@@ -124,18 +124,6 @@ JOB_LOG="$SCRATCHDIR/HAC-alignment_info.txt"
 TMP_BAM="$SCRATCHDIR/${RUN_NUMBER}_${BARCODE}.bam"              # dočasný BAM soubor ve scratchi
 TMP_BAM_BAI="$SCRATCHDIR/${RUN_NUMBER}_${BARCODE}.bam.bai"      # dočasný indexovaný BAM soubor ve scratchi
 
-# Logování pro kontrolu - logovací soubor bude obsahovat informace o spuštění úlohy, uzlu a cestě ke scratchi
-# 1. Centrální logovací soubor pro všechny úlohy v hlavní složce
-{
-    echo "------------------------------------------------------------------"
-    echo "ALIGNMENT:Spouštím úlohu: $RUN_NUMBER / $BARCODE dne: $(date)"
-    echo "Uzel: $(hostname -f)"
-    echo "Scratch adresář: $SCRATCHDIR"
-    echo "Array index: $PBS_ARRAY_INDEX"
-    echo "Referenční genom: $(basename $REF_GENOME)"
-} >> "$CENTRAL_LOG"
-
-# 2. Logovací soubor specifický pro tuto úlohu ve scratchi - smaže se po úspěšném dokončení, ale pokud dojde k chybě, zůstane pro kontrolu
 {
     echo "------------------------------------------------------------------"
     echo "ALIGNMENT:Run: $RUN_NUMBER"
@@ -147,7 +135,7 @@ TMP_BAM_BAI="$SCRATCHDIR/${RUN_NUMBER}_${BARCODE}.bam.bai"      # dočasný inde
     echo "Výstup: $FINAL_bam_OUTPUT_DIR"
     echo "Array index: $PBS_ARRAY_INDEX"
     echo "Referenční genom: $(basename $REF_GENOME)"
-} | tee -a "$JOB_LOG"
+} | tee -a "$JOB_LOG" >> "$CENTRAL_LOG"
 
 
 # =============================================================================
@@ -197,11 +185,9 @@ done
 # =============================================================================
 echo "[3/3] Kopíruji výsledky do $FINAL_bam_OUTPUT_DIR..." | tee -a "$JOB_LOG"
 
-mkdir -p "$FINAL_bam_OUTPUT_DIR"
-
 cp "$TMP_BAM" "$FINAL_bam_OUTPUT_DIR/${SAMPLE_NAME}.bam"
 cp "$TMP_BAM_BAI" "$FINAL_bam_OUTPUT_DIR/${SAMPLE_NAME}.bam.bai"
-cp "$JOB_LOG" "$FINAL_bam_OUTPUT_DIR/alignment_info.txt"
+cp "$JOB_LOG" "$FINAL_bam_OUTPUT_DIR/HAC-alignment_info.txt"
 
-echo "ÚSPĚCH: HOTOVO! Výsledky zkopírovány do $FINAL_bam_OUTPUT_DIR" | tee -a "$FINAL_bam_OUTPUT_DIR/alignment_info.txt"
-rm -rf "$SCRATCHDIR"/*
+echo "ÚSPĚCH: HOTOVO! Výsledky zkopírovány do $FINAL_bam_OUTPUT_DIR" | tee -a "$FINAL_bam_OUTPUT_DIR/HAC-alignment_info.txt"
+rm -rf $SCRATCHDIR/*
