@@ -77,6 +77,8 @@ fi
 BARCODE=$(printf "barcode%02d" "$PBS_ARRAY_INDEX")
 export BARCODE
 
+export ANALYSIS_TYPE="MinKNOW_${RUN_NUMBER}_${BARCODE}"
+
 # =============================================================================
 # 1. NASTAVENÍ UŽIVATELE (UPRAV POUZE TUTO ČÁST)
 # =============================================================================

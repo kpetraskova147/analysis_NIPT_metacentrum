@@ -5,7 +5,7 @@
 #PBS -N SUP_1_Basecall-demultiplex
 #PBS -q gpu
 #PBS -l select=1:ncpus=8:mem=64gb:ngpus=1:scratch_local=1500gb
-#PBS -l walltime=24:00:00
+#PBS -l walltime=48:00:00
 #PBS -j oe
 #PBS -m ae
 #PBS -M petraskkar@natur.cuni.cz

@@ -77,6 +77,8 @@ fi
 BARCODE=$(printf "barcode%02d" "$PBS_ARRAY_INDEX")
 export BARCODE
 
+export ANALYSIS_TYPE="HAC_${RUN_NUMBER}_${BARCODE}"
+
 SAMPLE_NAME="${RUN_NUMBER}-HAC_${BARCODE}"
 
 # =============================================================================
