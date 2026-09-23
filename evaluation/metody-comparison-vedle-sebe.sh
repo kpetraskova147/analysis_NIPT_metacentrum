@@ -1,5 +1,5 @@
 #!/bin/bash
-#PBS -N porovnani-3-metod-vedlesebe
+#PBS -N porovnani-4-metod-ctverec
 #PBS -l select=1:ncpus=1:mem=8gb
 #PBS -l walltime=00:15:00
 #PBS -o /storage/brno12-cerit/home/petraskkar/RESULTS/1-EVALUATION/pbs_outputs/
@@ -8,21 +8,19 @@
 # Přechod do pracovní složky
 cd $PBS_O_WORKDIR
 
-# Načtení proměnné z terminálu (výchozí run1)
-RUN="${RUN:-run1}"
-
 mkdir -p /storage/brno12-cerit/home/petraskkar/RESULTS/1-EVALUATION/pbs_outputs/
 
 BASE_DIR="/storage/brno12-cerit/home/petraskkar/RESULTS"
 
-# Cesty ke třem různým hodnocením
-INPUT_DIR1="${BASE_DIR}/1-EVALUATION/${RUN}_evaluation-seq_qc"
-INPUT_DIR2="${BASE_DIR}/1-EVALUATION_HAC/${RUN}_evaluation-HAC"
-INPUT_DIR3="${BASE_DIR}/1-EVALUATION_Minknow/${RUN}_evaluation-Minknow"
+# Cesty ke čtyřem různým hodnocením
+INPUT_DIR1="${BASE_DIR}/1-EVALUATION_sup/${RUN}_evaluation-sup"
+INPUT_DIR2="${BASE_DIR}/1-EVALUATION_fast/${RUN}_evaluation-fast"
+INPUT_DIR3="${BASE_DIR}/1-EVALUATION_HAC/${RUN}_evaluation-HAC"
+INPUT_DIR4="${BASE_DIR}/1-EVALUATION_MinKNOW/${RUN}_evaluation-MinKNOW"
 
 OUTPUT_DIR="${BASE_DIR}/2-COMPARISON/${RUN}_comparison"
-OUTPUT_FILE1="${OUTPUT_DIR}/${RUN}_metody-cfDNA_length-grafy-vedlesebe.pdf"
-PDF_OUTPUT1="${OUTPUT_DIR}/${RUN}_metody-genome-1000kb_grafy-vedlesebe.pdf"
+OUTPUT_FILE1="${OUTPUT_DIR}/${RUN}_metody-cfDNA_length-kolaz.pdf"
+PDF_OUTPUT1="${OUTPUT_DIR}/${RUN}_metody-genome-1000kb-kolaz.pdf"
 
 mkdir -p "$OUTPUT_DIR"
 
@@ -37,6 +35,7 @@ run = "$RUN"
 input_dir1 = "$INPUT_DIR1"
 input_dir2 = "$INPUT_DIR2"
 input_dir3 = "$INPUT_DIR3"
+input_dir4 = "$INPUT_DIR4"
 
 output_file = "$OUTPUT_FILE1"
 pdf_output = "$PDF_OUTPUT1"
@@ -44,76 +43,68 @@ pdf_output = "$PDF_OUTPUT1"
 pages_cfdna = []
 pages_genome = []
 
+spacing = 40  # Velikost mezery mezi obrázky
+
 # Projdeme všech 24 barcodů
 for i in range(1, 25):
     bc = f"barcode{i:02d}"
     
-    # --- 1. Zpracování cfDNA grafů ---
-    # Názvy upraveny přesně podle screenshotů pro každou metodu
-    file1 = f"{input_dir1}/{bc}_{run}/cfDNA_length_{run}_{bc}.png"
-    file2 = f"{input_dir2}/{bc}_{run}/cfDNA_length_HAC_{run}_{bc}.png"
-    file3 = f"{input_dir3}/{bc}_{run}-Minknow/cfDNA_length-Minknow_{run}_{bc}.png"
+# --- 1. Zpracování cfDNA grafů ---
+    file1 = f"{input_dir1}/{run}-sup_{bc}/cfDNA-length-{run}-sup_{bc}.png"
+    file2 = f"{input_dir2}/{run}-fast_{bc}/cfDNA-length-{run}-fast_{bc}.png"
+    file3 = f"{input_dir3}/{run}-HAC_{bc}/cfDNA-length-{run}-HAC_{bc}.png"
+    file4 = f"{input_dir4}/{run}-MinKNOW_{bc}/cfDNA-length-{run}-MinKNOW_{bc}.png"
 
     img1 = Image.open(file1) if os.path.exists(file1) else None
     img2 = Image.open(file2) if os.path.exists(file2) else None
     img3 = Image.open(file3) if os.path.exists(file3) else None
+    img4 = Image.open(file4) if os.path.exists(file4) else None
+
+    valid_imgs = [img for img in (img1, img2, img3, img4) if img]
     
-    w1, h1 = img1.size if img1 else (0, 0)
-    w2, h2 = img2.size if img2 else (0, 0)
-    w3, h3 = img3.size if img3 else (0, 0)
-    
-    if img1 or img2 or img3:
-        # Dynamický výpočet šířky plátna
-        widths = [w for w in (w1, w2, w3) if w > 0]
-        total_w = sum(widths) + (len(widths) - 1) * 40 if widths else 800
-        max_h = max(h1, h2, h3)
+    if valid_imgs:
+        max_w = max(img.width for img in valid_imgs)
+        max_h = max(img.height for img in valid_imgs)
         
-        page = Image.new('RGB', (total_w, max_h if max_h > 0 else 800), 'white')
+        # Vytvoření plátna pro 2x2 mřížku
+        total_w = (max_w * 2) + spacing
+        total_h = (max_h * 2) + spacing
+        page = Image.new('RGB', (total_w, total_h), 'white')
         
-        current_x = 0
-        if img1:
-            page.paste(img1, (current_x, 0))
-            current_x += w1 + 40
-        if img2:
-            page.paste(img2, (current_x, 0))
-            current_x += w2 + 40
-        if img3:
-            page.paste(img3, (current_x, 0))
-            
+        if img1: page.paste(img1, (0, 0))                              # Vlevo nahoře
+        if img2: page.paste(img2, (max_w + spacing, 0))                # Vpravo nahoře
+        if img3: page.paste(img3, (0, max_h + spacing))                # Vlevo dole
+        if img4: page.paste(img4, (max_w + spacing, max_h + spacing))  # Vpravo dole
+
         pages_cfdna.append(page)
 
     # --- 2. Zpracování 1000kb_genome grafů ---
-    # Názvy upraveny přesně podle screenshotů pro každou metodu
-    file4 = f"{input_dir1}/{bc}_{run}/1000kb_genome_HAC_{run}_{bc}.png"
-    file5 = f"{input_dir2}/{bc}_{run}/1000kb_genome_HAC_{run}_{bc}.png"
-    file6 = f"{input_dir3}/{bc}_{run}-Minknow/1000kb_genome-Minknow_{run}_{bc}.png"
+    file_g1 = f"{input_dir1}/{run}-sup_{bc}/1000kb_genome-{run}-sup_{bc}.png"
+    file_g2 = f"{input_dir2}/{run}-fast_{bc}/1000kb_genome-{run}-fast_{bc}.png"
+    file_g3 = f"{input_dir3}/{run}-HAC_{bc}/1000kb_genome-{run}-HAC_{bc}.png"
+    file_g4 = f"{input_dir4}/{run}-MinKNOW_{bc}/1000kb_genome-{run}-MinKNOW_{bc}.png"
 
-    img4 = Image.open(file4) if os.path.exists(file4) else None
-    img5 = Image.open(file5) if os.path.exists(file5) else None
-    img6 = Image.open(file6) if os.path.exists(file6) else None
+    img_g1 = Image.open(file_g1) if os.path.exists(file_g1) else None
+    img_g2 = Image.open(file_g2) if os.path.exists(file_g2) else None
+    img_g3 = Image.open(file_g3) if os.path.exists(file_g3) else None
+    img_g4 = Image.open(file_g4) if os.path.exists(file_g4) else None
 
-    w4, h4 = img4.size if img4 else (0, 0)
-    w5, h5 = img5.size if img5 else (0, 0)
-    w6, h6 = img6.size if img6 else (0, 0)
+    valid_imgs_g = [img for img in (img_g1, img_g2, img_g3, img_g4) if img]
     
-    if img4 or img5 or img6:
-        # Dynamický výpočet šířky plátna
-        widths2 = [w for w in (w4, w5, w6) if w > 0]
-        total_w2 = sum(widths2) + (len(widths2) - 1) * 40 if widths2 else 800
-        max_h2 = max(h4, h5, h6)
+    if valid_imgs_g:
+        max_w = max(img.width for img in valid_imgs_g)
+        max_h = max(img.height for img in valid_imgs_g)
         
-        page2 = Image.new('RGB', (total_w2, max_h2 if max_h2 > 0 else 800), 'white')
+        # Vytvoření plátna pro 2x2 mřížku
+        total_w = (max_w * 2) + spacing
+        total_h = (max_h * 2) + spacing
+        page2 = Image.new('RGB', (total_w, total_h), 'white')
         
-        current_x2 = 0
-        if img4:
-            page2.paste(img4, (current_x2, 0))
-            current_x2 += w4 + 40
-        if img5:
-            page2.paste(img5, (current_x2, 0))
-            current_x2 += w5 + 40
-        if img6:
-            page2.paste(img6, (current_x2, 0))
-            
+        if img_g1: page2.paste(img_g1, (0, 0))                               # Vlevo nahoře
+        if img_g2: page2.paste(img_g2, (max_w + spacing, 0))                 # Vpravo nahoře
+        if img_g3: page2.paste(img_g3, (0, max_h + spacing))                 # Vlevo dole
+        if img_g4: page2.paste(img_g4, (max_w + spacing, max_h + spacing))   # Vpravo dole
+
         pages_genome.append(page2)
 
 # Uložení cfDNA PDF

@@ -2,7 +2,7 @@
 # =============================================================================
 # PBS HLAVIČKA PRO ŘÍDICÍ SKRIPT (Běží jen chvilku, pouze rozdává úkoly)
 # =============================================================================
-#PBS -N HAC-MASTER_Pipeline
+#PBS -N DIRTY-HAC-MASTER_Pipeline
 #PBS -l select=1:ncpus=1:mem=2gb
 #PBS -l walltime=0:10:00
 #PBS -q default

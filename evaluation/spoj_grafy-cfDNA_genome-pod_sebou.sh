@@ -1,5 +1,5 @@
 #!/bin/bash
-#PBS -N seq_qc-2x-pdf-vedlesebe
+#PBS -N podsebou
 #PBS -l select=1:ncpus=1:mem=8gb
 #PBS -l walltime=00:10:00
 #PBS -o /storage/brno12-cerit/home/petraskkar/RESULTS/1-EVALUATION/pbs_outputs/
@@ -7,27 +7,27 @@
 
 mkdir -p /storage/brno12-cerit/home/petraskkar/RESULTS/1-EVALUATION/pbs_outputs/
 
-cd $PBS_O_WORKDIR
 
 BASE_DIR="/storage/brno12-cerit/home/petraskkar/RESULTS"
-INPUT_DIR="${BASE_DIR}/1-EVALUATION/${RUN}_evaluation-seq_qc"
+INPUT_DIR="${BASE_DIR}/1-EVALUATION_${TYPE}/${RUN}_evaluation-${TYPE}"
 
-# Výsledné soubory
+# Výsledné soubory (změněn název na podsebou)
 OUTPUT_DIR="${BASE_DIR}/2-COMPARISON/${RUN}_comparison"
-OUTPUT_FILE_CFDNA="${OUTPUT_DIR}/${RUN}_cfDNA_length-grafy-vedlesebe.pdf"
-OUTPUT_FILE_GENOME="${OUTPUT_DIR}/${RUN}_genome-1000kb_grafy-vedlesebe.pdf"
+OUTPUT_FILE_CFDNA="${OUTPUT_DIR}/${TYPE}_${RUN}_cfDNA_length-grafy-podsebou.pdf"
+OUTPUT_FILE_GENOME="${OUTPUT_DIR}/${TYPE}_${RUN}_genome-1000kb_grafy-podsebou.pdf"
 
 mkdir -p "$OUTPUT_DIR"
 
 # ========================================================================================
 # 1. PYTHON SKRIPT
 # ========================================================================================
-# Následující část se spustí jako Python skript
 python3 - <<EOF
 import os
 from PIL import Image
 
 run = "$RUN"
+type = "$TYPE"
+
 input_dir = "$INPUT_DIR"
 output_file_cfdna = "$OUTPUT_FILE_CFDNA"
 output_file_genome = "$OUTPUT_FILE_GENOME"
@@ -41,10 +41,10 @@ for i in range(1, 13):
     bc2_str = f"barcode{i+12:02d}"
     
     # ---------------------------------------------------------
-    # 1. Zpracování cfDNA grafů (VEDLE SEBE)
+    # 1. Zpracování cfDNA grafů (POD SEBOU)
     # ---------------------------------------------------------
-    file1_cfdna = f"{input_dir}/{bc1_str}_{run}/cfDNA_length_{run}_{bc1_str}.png"
-    file2_cfdna = f"{input_dir}/{bc2_str}_{run}/cfDNA_length_{run}_{bc2_str}.png"
+    file1_cfdna = f"{input_dir}/{run}-{type}_{bc1_str}/cfDNA-length-{run}-{type}_{bc1_str}.png"
+    file2_cfdna = f"{input_dir}/{run}-{type}_{bc2_str}/cfDNA-length-{run}-{type}_{bc2_str}.png"
     
     img1_cfdna = Image.open(file1_cfdna) if os.path.exists(file1_cfdna) else None
     img2_cfdna = Image.open(file2_cfdna) if os.path.exists(file2_cfdna) else None
@@ -53,24 +53,24 @@ for i in range(1, 13):
     w2_c, h2_c = img2_cfdna.size if img2_cfdna else (0, 0)
     
     if img1_cfdna or img2_cfdna:
-        # Součet šířek (osa X) a maximální výška (osa Y)
-        total_w_c = w1_c + w2_c + (40 if img1_cfdna and img2_cfdna else 0)
-        max_h_c = max(h1_c, h2_c)
+        # Maximální šířka a součet výšek (osa Y)
+        max_w_c = max(w1_c, w2_c)
+        total_h_c = h1_c + h2_c + (40 if img1_cfdna and img2_cfdna else 0)
         
-        page_cfdna = Image.new('RGB', (total_w_c if total_w_c > 0 else 800, max_h_c if max_h_c > 0 else 600), 'white')
+        page_cfdna = Image.new('RGB', (max_w_c if max_w_c > 0 else 800, total_h_c if total_h_c > 0 else 600), 'white')
         
         if img1_cfdna:
-            page_cfdna.paste(img1_cfdna, (0, 0)) # Vlevo
+            page_cfdna.paste(img1_cfdna, (0, 0)) # Nahoře
         if img2_cfdna:
-            page_cfdna.paste(img2_cfdna, (w1_c + 40 if img1_cfdna else 0, 0)) # Vedle něj doprava
+            page_cfdna.paste(img2_cfdna, (0, h1_c + 40 if img1_cfdna else 0)) # Pod ním dolů
             
         pages_cfdna.append(page_cfdna)
 
     # ---------------------------------------------------------
-    # 2. Zpracování 1000kb_genome grafů (VEDLE SEBE)
+    # 2. Zpracování 1000kb_genome grafů (POD SEBOU)
     # ---------------------------------------------------------
-    file1_genome = f"{input_dir}/{bc1_str}_{run}/1000kb_genome_{run}_{bc1_str}.png"
-    file2_genome = f"{input_dir}/{bc2_str}_{run}/1000kb_genome_{run}_{bc2_str}.png"
+    file1_genome = f"{input_dir}/{run}-{type}_{bc1_str}/1000kb_genome-{run}-{type}_{bc1_str}.png"
+    file2_genome = f"{input_dir}/{run}-{type}_{bc2_str}/1000kb_genome-{run}-{type}_{bc2_str}.png"
     
     img1_genome = Image.open(file1_genome) if os.path.exists(file1_genome) else None
     img2_genome = Image.open(file2_genome) if os.path.exists(file2_genome) else None
@@ -79,16 +79,16 @@ for i in range(1, 13):
     w2_g, h2_g = img2_genome.size if img2_genome else (0, 0)
     
     if img1_genome or img2_genome:
-        # Součet šířek (osa X) a maximální výška (osa Y)
-        total_w_g = w1_g + w2_g + (40 if img1_genome and img2_genome else 0)
-        max_h_g = max(h1_g, h2_g)
+        # Maximální šířka a součet výšek (osa Y)
+        max_w_g = max(w1_g, w2_g)
+        total_h_g = h1_g + h2_g + (40 if img1_genome and img2_genome else 0)
         
-        page_genome = Image.new('RGB', (total_w_g if total_w_g > 0 else 800, max_h_g if max_h_g > 0 else 600), 'white')
+        page_genome = Image.new('RGB', (max_w_g if max_w_g > 0 else 800, total_h_g if total_h_g > 0 else 600), 'white')
         
         if img1_genome:
-            page_genome.paste(img1_genome, (0, 0)) # Vlevo
+            page_genome.paste(img1_genome, (0, 0)) # Nahoře
         if img2_genome:
-            page_genome.paste(img2_genome, (w1_g + 40 if img1_genome else 0, 0)) # Vedle něj doprava
+            page_genome.paste(img2_genome, (0, h1_g + 40 if img1_genome else 0)) # Pod ním dolů
             
         pages_genome.append(page_genome)
 

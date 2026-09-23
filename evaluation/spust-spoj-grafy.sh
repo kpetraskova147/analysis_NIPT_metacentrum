@@ -1,27 +1,46 @@
 #!/bin/bash
+#PBS -N spust-spoj-grafy
+#PBS -o /storage/brno12-cerit/home/petraskkar/RESULTS/1-EVALUATION/pbs_outputs/
+#PBS -e /storage/brno12-cerit/home/petraskkar/RESULTS/1-EVALUATION/pbs_outputs/
 
-# Zkontrolujeme, zda skripty v dané složce vůbec existují, než je spustíme
-if [ ! -f "spoj_grafy-cfDNA-pod_sebou.sh" ] || [ ! -f "spoj_grafy-cfDNA-vedle_sebe.sh" ]; then
-    echo "Chyba: Nemohu najít jeden ze skriptů (spoj_grafy-cfDNA-pod_sebou.sh nebo spoj_grafy-cfDNA-vedle_sebe.sh)."
-    echo "Ujisti se, že spouštíš tento skript ze stejné složky, kde jsou tyto dva skripty."
+mkdir -p /storage/brno12-cerit/home/petraskkar/RESULTS/1-EVALUATION/pbs_outputs/
+
+
+# Zajištění, že jsme ve správné složce (pokud to spouštíte přes qsub)
+cd "$PBS_O_WORKDIR" 2>/dev/null || true
+
+# Sjednocení proměnné RUN_NUMBER do RUN, aby fungovalo obojí
+RUN="${RUN:-$RUN_NUMBER}"
+
+# Kontrola, zda máme vše potřebné
+if [ -z "$RUN" ] || [ -z "$TYPE" ]; then
+    echo "CHYBA: Musíte zadat RUN_NUMBER a TYPE (např. qsub -v RUN_NUMBER=run1,TYPE=fast ...)"
     exit 1
 fi
 
-# Cyklus, který proběhne pro čísla 1, 2, 3 a 4
-for i in {1..4}; do
-    CURRENT_RUN="run${i}"
-    echo "======================================"
-    echo "Odesílám úlohy pro $CURRENT_RUN..."
-    echo "======================================"
+# 1. Opravené podmínky (přidáno středník a 'then')
+if [ ! -f "spoj_grafy-cfDNA+genome-vedle_sebe.sh" ]; then
+    echo "CHYBA: Nelze najít skript: spoj_grafy-cfDNA+genome-vedle_sebe.sh"
+    exit 1
+fi
 
-    # Odeslání prvního skriptu (pod sebou). Posíláme RUN i RUN_NUMBER pro jistotu
-    qsub -v RUN="$CURRENT_RUN",RUN_NUMBER="$CURRENT_RUN" spoj_grafy-cfDNA-pod_sebou.sh
-    
-    # Odeslání druhého skriptu (vedle sebe)
-    qsub -v RUN="$CURRENT_RUN",RUN_NUMBER="$CURRENT_RUN" spoj_grafy-cfDNA-vedle_sebe.sh
+if [ ! -f "spoj_grafy-cfDNA_genome-pod_sebou.sh" ]; then
+    echo "CHYBA: Nelze najít skript: spoj_grafy-cfDNA_genome-pod_sebou.sh"
+    exit 1
+fi
 
-    echo "Úlohy pro $CURRENT_RUN byly odeslány."
-    echo ""
-done
+if [ ! -f "spoj_grafy-cfDNA_genome-vedle_sebe.sh" ]; then
+    echo "CHYBA: Nelze najít skript: spoj_grafy-cfDNA_genome-vedle_sebe.sh"
+    exit 1
+fi
 
-echo "Všechny úlohy (celkem 8) byly úspěšně zařazeny do qsub fronty!"
+echo "======================================"
+echo "Odesílám úlohy pro $RUN (Typ: $TYPE)..."
+echo "======================================"
+
+# 2. Opravené předávání proměnných do qsub (přidán TYPE, použit sjednocený RUN)
+qsub -v RUN="$RUN",TYPE="$TYPE" spoj_grafy-cfDNA_genome-pod_sebou.sh
+qsub -v RUN="$RUN",TYPE="$TYPE" spoj_grafy-cfDNA+genome-vedle_sebe.sh
+qsub -v RUN="$RUN",TYPE="$TYPE" spoj_grafy-cfDNA_genome-vedle_sebe.sh
+
+echo "Úlohy pro $RUN byly úspěšně odeslány do fronty (celkem 3)."

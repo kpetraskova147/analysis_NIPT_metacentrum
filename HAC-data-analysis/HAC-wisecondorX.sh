@@ -77,7 +77,7 @@ fi
 BARCODE=$(printf "barcode%02d" "$PBS_ARRAY_INDEX")
 export BARCODE
 
-export ANALYSIS_TYPE="HAC_${RUN_NUMBER}_${BARCODE}"
+export ANALYSIS_TYPE="HAC"
 
 SAMPLE_NAME="${RUN_NUMBER}-HAC_${BARCODE}"
 
@@ -94,7 +94,7 @@ RUN_INPUT_DIR="$INPUT_BAM_DIR/HAC-alignment_output_${RUN_NUMBER}"
 BAM_FILE="$RUN_INPUT_DIR/$SAMPLE_NAME.bam"
 BAI_FILE="$RUN_INPUT_DIR/$SAMPLE_NAME.bam.bai"
 
-HIST_FOLDER="$BASE_DIR/RESULTS/HAC-statistics_results/HAC-statistics_output_${RUN_NUMBER}/${RUN_NUMBER}-HAC_${BARCODE}"
+HIST_FOLDER="$BASE_DIR/RESULTS/HAC-statistics_results/HAC-statistics_output_${RUN_NUMBER}/$SAMPLE_NAME"
 HIST_FILE="$HIST_FOLDER/lengths_$SAMPLE_NAME.txt"
 NANOSTAT_FILE="$HIST_FOLDER/nanostat_$SAMPLE_NAME.txt"
 
@@ -235,7 +235,6 @@ elif [ "$POOR_ACCURACY" -eq 1 ]; then
 fi
 
 export SEQ_QC_STATUS AVG_IDENTITY CURRENT_FF="$MY_FF" LEGEND_PLACEMENT="bottom"
-export ANALYSIS_TYPE="Minknow"
 
 for REF_SIZE in ${REF_SIZES}; do
     CURRENT_REF="reference_${REF_SIZE}kb.npz"
@@ -265,8 +264,8 @@ mkdir -p "$PLOTS_EVALUATION"
 # 1. Přesun a přejmenování celých složek s grafy + přesun aberration.bed
 for REF_SIZE in ${REF_SIZES}; do
     # Názvy, jak je vygeneroval WisecondorX ve scratchi
-    ORIG_PLOTS="plots_${REF_SIZE}kb/$SAMPLE_NAME_${REF_SIZE}kb.plots"
-    ORIG_BED="plots_${REF_SIZE}kb/$SAMPLE_NAME_${REF_SIZE}kb_aberrations.bed"
+    ORIG_PLOTS="plots_${REF_SIZE}kb/${SAMPLE_NAME}_${REF_SIZE}kb.plots"
+    ORIG_BED="plots_${REF_SIZE}kb/${SAMPLE_NAME}_${REF_SIZE}kb_aberrations.bed"
 
     # Pokud složka s grafy existuje, přesune se celá a rovnou se přejmenuje
     if [ -d "$ORIG_PLOTS" ]; then
