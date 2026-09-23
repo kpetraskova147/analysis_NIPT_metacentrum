@@ -2,7 +2,7 @@
 # =============================================================================
 # 0. PBS PARAMETRY
 # =============================================================================
-#PBS -N Minknow-WisecondorX_Analysis
+#PBS -N MinKNOW-WisecondorX_Analysis
 #PBS -l select=1:ncpus=9:mem=32gb:scratch_local=20gb
 #PBS -l walltime=6:00:00
 #PBS -j oe
@@ -77,7 +77,9 @@ fi
 BARCODE=$(printf "barcode%02d" "$PBS_ARRAY_INDEX")
 export BARCODE
 
-export ANALYSIS_TYPE="MinKNOW_${RUN_NUMBER}_${BARCODE}"
+export ANALYSIS_TYPE="MinKNOW"
+
+SAMPLE_NAME="${RUN_NUMBER}-MinKNOW_${BARCODE}"
 
 # =============================================================================
 # 1. NASTAVENÍ UŽIVATELE (UPRAV POUZE TUTO ČÁST)
@@ -92,18 +94,18 @@ RUN_INPUT_DIR="$INPUT_BAM_DIR/Minknow-alignment_output_${RUN_NUMBER}"
 BAM_FILE="$RUN_INPUT_DIR/${RUN_NUMBER}_${BARCODE}.bam"
 BAI_FILE="$RUN_INPUT_DIR/${RUN_NUMBER}_${BARCODE}.bam.bai"
 
-HIST_FOLDER="$BASE_DIR/RESULTS/MinKNOW-statistics_results/MinKNOW-statistics_output_${RUN_NUMBER}/${RUN_NUMBER}-MinKNOW_${BARCODE}"
-HIST_FILE="$HIST_FOLDER/lengths_${RUN_NUMBER}-MinKNOW_${BARCODE}.txt"
-NANOSTAT_FILE="$HIST_FOLDER/nanostat_${RUN_NUMBER}-MinKNOW_${BARCODE}.txt"
+HIST_FOLDER="$BASE_DIR/RESULTS/MinKNOW-statistics_results/MinKNOW-statistics_output_${RUN_NUMBER}/$SAMPLE_NAME"
+HIST_FILE="$HIST_FOLDER/lengths_$SAMPLE_NAME.txt"
+NANOSTAT_FILE="$HIST_FOLDER/nanostat_$SAMPLE_NAME.txt"
 
 REF_DIR="$WORK_DIR/references/reference_${DATUM}"
 REF_SIZES="1000 500 100"
 
 OUTPUT_DIR="$BASE_DIR/RESULTS"
-RUN_OUTPUT_DIR="$OUTPUT_DIR/wisecondorX_results/wisecondorX_output_${RUN_NUMBER}-MinKNOW"
-FINAL_OUTPUT_DIR="$RUN_OUTPUT_DIR/${RUN_NUMBER}_${BARCODE}-MinKNOW"
-PLOTS_OUTPUT_DIR="$RUN_OUTPUT_DIR/PLOTS_${RUN_NUMBER}-MinKNOW_${BARCODE}"
-EVALUATION_DIR="$OUTPUT_DIR/1-EVALUATIONf-MinKNOW/${RUN_NUMBER}_evaluation-MinKNOW/${BARCODE}_${RUN_NUMBER}-MinKNOW"
+RUN_OUTPUT_DIR="$OUTPUT_DIR/MinKNOW-wisecondorX_results/wisecondorX_output_${RUN_NUMBER}-MinKNOW"
+FINAL_OUTPUT_DIR="$RUN_OUTPUT_DIR/$SAMPLE_NAME"
+PLOTS_OUTPUT_DIR="$RUN_OUTPUT_DIR/PLOTS_$SAMPLE_NAME"
+EVALUATION_DIR="$OUTPUT_DIR/1-EVALUATION_MinKNOW/${RUN_NUMBER}_evaluation-MinKNOW/$SAMPLE_NAME"
 PLOTS_EVALUATION="$EVALUATION_DIR/PLOTS_${RUN_NUMBER}_MinKNOW"
 
 NPZ_OUTPUT_DIR="$WORK_DIR/MinKNOW-ALL_NPZ"
@@ -179,8 +181,8 @@ set -u
 # =============================================================================
 # 5. SPUŠTĚNÍ ANALÝZY - CONVERT + PREDICT
 # =============================================================================
-TMP_BASE="${RUN_NUMBER}_${BARCODE}"
-TMP_NPZ="${RUN_NUMBER}_${BARCODE}.npz"          
+TMP_BASE="$SAMPLE_NAME"
+TMP_NPZ="$SAMPLE_NAME.npz"          
 
 python3 "${STORAGE_WISE_ENV}/main.py" convert "./${LOCAL_BAM}" "./${TMP_BASE}"
 
@@ -238,7 +240,7 @@ for REF_SIZE in ${REF_SIZES}; do
     CURRENT_REF="reference_${REF_SIZE}kb.npz"
     OUT_PLOTS_DIR="plots_${REF_SIZE}kb"
     mkdir -p "$OUT_PLOTS_DIR"
-    PREFIX="${OUT_PLOTS_DIR}/${RUN_NUMBER}_${BARCODE}_${REF_SIZE}kb"
+    PREFIX="${OUT_PLOTS_DIR}/${SAMPLE_NAME}_${REF_SIZE}kb"
 
     python3 "${STORAGE_WISE_ENV}/main.py" predict "./${TMP_NPZ}" "./${CURRENT_REF}" "${PREFIX}" \
         --plot \
@@ -262,26 +264,26 @@ mkdir -p "$PLOTS_EVALUATION"
 # 1. Přesun a přejmenování celých složek s grafy + přesun aberration.bed
 for REF_SIZE in ${REF_SIZES}; do
     # Názvy, jak je vygeneroval WisecondorX ve scratchi
-    ORIG_PLOTS="plots_${REF_SIZE}kb/${RUN_NUMBER}_${BARCODE}_${REF_SIZE}kb.plots"
-    ORIG_BED="plots_${REF_SIZE}kb/${RUN_NUMBER}_${BARCODE}_${REF_SIZE}kb_aberrations.bed"
+    ORIG_PLOTS="plots_${REF_SIZE}kb/${SAMPLE_NAME}_${REF_SIZE}kb.plots"
+    ORIG_BED="plots_${REF_SIZE}kb/${SAMPLE_NAME}_${REF_SIZE}kb_aberrations.bed"
 
     # Pokud složka s grafy existuje, přesune se celá a rovnou se přejmenuje
     if [ -d "$ORIG_PLOTS" ]; then
-        mv "$ORIG_PLOTS" "$PLOTS_OUTPUT_DIR/${REF_SIZE}kb-MinKNOW_${RUN_NUMBER}_${BARCODE}.plots"
+        mv "$ORIG_PLOTS" "$PLOTS_OUTPUT_DIR/${REF_SIZE}kb-${SAMPLE_NAME}.plots"
     fi
 
     # Přesun genome_wide.png - 1000kb do více přístupné složky
-    if [ "$REF_SIZE" == "1000" ] && [ -f "$PLOTS_OUTPUT_DIR/1000kb-MinKNOW_${RUN_NUMBER}_${BARCODE}.plots/genome_wide.png" ]; then
-        mv "$PLOTS_OUTPUT_DIR/1000kb-MinKNOW_${RUN_NUMBER}_${BARCODE}.plots/genome_wide.png" "$EVALUATION_DIR/1000kb_genome-MinKNOW_${RUN_NUMBER}_${BARCODE}.png"
+    if [ "$REF_SIZE" == "1000" ] && [ -f "$PLOTS_OUTPUT_DIR/1000kb-${SAMPLE_NAME}.plots/genome_wide.png" ]; then
+        mv "$PLOTS_OUTPUT_DIR/1000kb-${SAMPLE_NAME}.plots/genome_wide.png" "$EVALUATION_DIR/1000kb_genome-${SAMPLE_NAME}.png"
     fi
-    
-    if [ -d "$PLOTS_OUTPUT_DIR/${REF_SIZE}kb-MinKNOW_${RUN_NUMBER}_${BARCODE}.plots" ]; then
-        mv "$PLOTS_OUTPUT_DIR/${REF_SIZE}kb-MinKNOW_${RUN_NUMBER}_${BARCODE}.plots" "$PLOTS_EVALUATION"
+
+    if [ -d "$PLOTS_OUTPUT_DIR/${REF_SIZE}kb-${SAMPLE_NAME}.plots" ]; then
+        mv "$PLOTS_OUTPUT_DIR/${REF_SIZE}kb-${SAMPLE_NAME}.plots" "$PLOTS_EVALUATION"
     fi
 
     # Přesun souboru aberrations.bed (název zůstává stejný)
     if [ -f "$ORIG_BED" ]; then
-        mv "$ORIG_BED" "$EVALUATION_DIR/${RUN_NUMBER}-MinKNOW_${BARCODE}_${REF_SIZE}kb_aberrations.bed"
+        mv "$ORIG_BED" "$EVALUATION_DIR/${SAMPLE_NAME}_${REF_SIZE}kb_aberrations.bed"
     fi
 done
 
@@ -294,8 +296,8 @@ cp "$TMP_NPZ" "$NPZ_OUTPUT_DIR/"
 
 # Přesun dat ze statistiky do evaluation složky
 cp "${NANOSTAT_FILE}" "$EVALUATION_DIR/"
-cp "${HIST_FOLDER}/plots_${RUN_NUMBER}-MinKNOW_${BARCODE}/cfDNA_MinKNOW_log_histogram.png" "$EVALUATION_DIR/cfDNA_length-MinKNOW_${RUN_NUMBER}_${BARCODE}.png"
-cp "${HIST_FOLDER}/plots_${RUN_NUMBER}-MinKNOW_${BARCODE}/NanoPlot-report_MinKNOW.html" "$EVALUATION_DIR/NanoPlot-report-MinKNOW_${RUN_NUMBER}_${BARCODE}.html"
+cp "${HIST_FOLDER}/plots_${SAMPLE_NAME}/cfDNA-MinKNOW_log_histogram.png" "$EVALUATION_DIR/cfDNA-length-${SAMPLE_NAME}.png"
+cp "${HIST_FOLDER}/plots_${SAMPLE_NAME}/NanoPlot-report-MinKNOW.html" "$EVALUATION_DIR/NanoPlot-report-${SAMPLE_NAME}.html"
 
 # =============================================================================
 # 7. KONTROLA ÚSPĚŠNÉHO ZKOPÍROVÁNÍ (pro všechna 3 rozlišení)
@@ -305,17 +307,17 @@ KOPIROVANI_OK=true
 # 1. Kontrola pro různé REF_SIZES
 for REF_SIZE in ${REF_SIZES}; do
     # Kontrolujeme aberrations.bed v jeho NOVÉM umístění ve složce EVALUATION
-    if [ ! -s "$EVALUATION_DIR/${RUN_NUMBER}-MinKNOW_${BARCODE}_${REF_SIZE}kb_aberrations.bed" ]; then
+    if [ ! -s "$EVALUATION_DIR/${SAMPLE_NAME}_${REF_SIZE}kb_aberrations.bed" ]; then
         KOPIROVANI_OK=false
     fi
 done
 
 # Kontrola dalších souborů
 STATIC_FILES=(
-    "$EVALUATION_DIR/1000kb_genome-MinKNOW_${RUN_NUMBER}_${BARCODE}.png"
-    "$EVALUATION_DIR/cfDNA_length-MinKNOW_${RUN_NUMBER}_${BARCODE}.png"
-    "$EVALUATION_DIR/nanostat-MinKNOW_${RUN_NUMBER}_${BARCODE}.txt"
-    "$EVALUATION_DIR/NanoPlot-report-MinKNOW_${RUN_NUMBER}_${BARCODE}.html"
+    "$EVALUATION_DIR/1000kb_genome-${SAMPLE_NAME}.png"
+    "$EVALUATION_DIR/cfDNA-length-${SAMPLE_NAME}.png"
+    "$EVALUATION_DIR/nanostat_${SAMPLE_NAME}.txt"
+    "$EVALUATION_DIR/NanoPlot-report-${SAMPLE_NAME}.html"
     )
     
 for CHECK_FILES in "${STATIC_FILES[@]}"; do
@@ -330,7 +332,7 @@ if [ "$KOPIROVANI_OK" = true ] && [ -f "$FINAL_OUTPUT_DIR/wisecondorX_info-MinKN
         echo "Hotovo: $RUN_NUMBER / $BARCODE dne: $(date +%Y-%m-%d)"
         echo "Kopírování všech výsledků úspěšné. Mažu scratch."
     } | tee -a "$FINAL_OUTPUT_DIR/wisecondorX_info-MinKNOW.txt"
-    
+
     clean_scratch
 else
     echo "KRITICKÁ CHYBA: Některé výsledky chybí, kopírování selhalo. Data zůstávají chráněna ve scratchi!" | tee -a "$FINAL_OUTPUT_DIR/wisecondorX_info-MinKNOW.txt" >&2
