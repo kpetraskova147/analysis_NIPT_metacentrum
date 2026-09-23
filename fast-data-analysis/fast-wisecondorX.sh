@@ -77,7 +77,7 @@ fi
 BARCODE=$(printf "barcode%02d" "$PBS_ARRAY_INDEX")
 export BARCODE
 
-export ANALYSIS_TYPE="FAST_${RUN_NUMBER}_${BARCODE}"
+export ANALYSIS_TYPE="FAST"
 
 SAMPLE_NAME="${RUN_NUMBER}-fast_${BARCODE}"
 
@@ -235,7 +235,6 @@ elif [ "$POOR_ACCURACY" -eq 1 ]; then
 fi
 
 export SEQ_QC_STATUS AVG_IDENTITY CURRENT_FF="$MY_FF" LEGEND_PLACEMENT="bottom"
-export ANALYSIS_TYPE="Minknow"
 
 for REF_SIZE in ${REF_SIZES}; do
     CURRENT_REF="reference_${REF_SIZE}kb.npz"
@@ -265,8 +264,8 @@ mkdir -p "$PLOTS_EVALUATION"
 # 1. Přesun a přejmenování celých složek s grafy + přesun aberration.bed
 for REF_SIZE in ${REF_SIZES}; do
     # Názvy, jak je vygeneroval WisecondorX ve scratchi
-    ORIG_PLOTS="plots_${REF_SIZE}kb/$SAMPLE_NAME_${REF_SIZE}kb.plots"
-    ORIG_BED="plots_${REF_SIZE}kb/$SAMPLE_NAME_${REF_SIZE}kb_aberrations.bed"
+    ORIG_PLOTS="plots_${REF_SIZE}kb/${SAMPLE_NAME}_${REF_SIZE}kb.plots"
+    ORIG_BED="plots_${REF_SIZE}kb/${SAMPLE_NAME}_${REF_SIZE}kb_aberrations.bed"
 
     # Pokud složka s grafy existuje, přesune se celá a rovnou se přejmenuje
     if [ -d "$ORIG_PLOTS" ]; then

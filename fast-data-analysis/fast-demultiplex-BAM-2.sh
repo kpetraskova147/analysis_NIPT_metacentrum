@@ -47,7 +47,7 @@ cp "$INPUT_BAM" $SCRATCHDIR/
 # =============================================================================
 echo "Rozděluji data podle hotových štítků..."
 "$LOCAL_DORADO_BIN" demux \
-    --kit-name "$KIT" \
+    --no-classify \
     --emit-fastq \
     --output-dir "$SCRATCHDIR/demultiplexed" \
     "$SCRATCHDIR/fast-unaligned_barcoded.bam"
@@ -59,29 +59,35 @@ echo "Filtrování (<50 bp) a komprese FASTQ..."
 
 cd "$SCRATCHDIR/demultiplexed"
 
-# Dorado vytvoří podsložku s názvem Kitu - přesuneme se do ní
-if [ -d "$KIT" ]; then
-    cd "$KIT"
-fi
-
-shopt -s nullglob
-for FILE in *.fastq *.fastq.gz *.fq *.fq.gz; do
-    [ -f "$FILE" ] || continue
+# Příkaz find prohledá VŠECHNY podsložky a najde jakýkoliv fastq soubor
+find . -type f \( -name "*.fastq" -o -name "*.fastq.gz" \) | while read FILE; do
     
-    # Očištění názvu od jména kitu a přípony
-    CLEAN_NAME=$(basename "$FILE" | sed -E "s/^${KIT}_//; s/\.fastq\.gz$//; s/\.fastq$//; s/\.fq\.gz$//; s/\.fq$//")
-    NEW_FILENAME="${RUN_NUMBER}-fast_${CLEAN_NAME}.fastq.gz"
-    
-    # Filtrace a komprese s přesunem do nadřazené složky
-    if [[ "$FILE" == *.gz ]]; then
-        zcat "$FILE" | awk 'BEGIN {OFS="\n"} {header=$0; getline seq; getline qheader; getline qseq; if (length(seq) >= 50) {print header, seq, qheader, qseq}}' | gzip > "$SCRATCHDIR/demultiplexed/$NEW_FILENAME"
-    else
-        awk 'BEGIN {OFS="\n"} {header=$0; getline seq; getline qheader; getline qseq; if (length(seq) >= 50) {print header, seq, qheader, qseq}}' "$FILE" | gzip > "$SCRATCHDIR/demultiplexed/$NEW_FILENAME"
+    # Bezpečnostní pojistka: Pokud soubor nepatří žádnému barcodu (např. unclassified), přeskočíme ho
+    if [[ ! "$FILE" =~ barcode[0-9]+ ]]; then
+        echo "Přeskakuji soubor bez barcodu: $FILE"
+        continue
     fi
     
+    # Univerzální očištění jména: Vytáhne z cesty a názvu čistě jen slovo "barcodeXX"
+    CLEAN_NAME=$(echo "$FILE" | sed -E 's/.*(barcode[0-9]+).*/\1/')
+    NEW_FILENAME="${RUN_NUMBER}-fast_${CLEAN_NAME}.fastq.gz"
+    
+    echo "Zpracovávám: $FILE -> $NEW_FILENAME"
+    
+    # Filtrace a komprese s přesunem rovnou do hlavní složky demultiplexed
+    if [[ "$FILE" == *.gz ]]; then
+        zcat "$FILE" | awk 'BEGIN {OFS="\n"} \
+        {header=$0; getline seq; getline qheader; getline qseq; \
+        if (length(seq) >= 50) {print header, seq, qheader, qseq}}' | gzip > "$SCRATCHDIR/demultiplexed/$NEW_FILENAME"
+    else
+        awk 'BEGIN {OFS="\n"} \
+        {header=$0; getline seq; getline qheader; getline qseq; \
+        if (length(seq) >= 50) {print header, seq, qheader, qseq}}' "$FILE" | gzip > "$SCRATCHDIR/demultiplexed/$NEW_FILENAME"
+    fi
+    
+    # Smažeme původní soubor, aby nám ve scratchi nedošlo místo
     rm "$FILE"
 done
-shopt -u nullglob
 
 # =============================================================================
 # 6. KOPÍROVÁNÍ VÝSLEDKŮ A ÚKLID

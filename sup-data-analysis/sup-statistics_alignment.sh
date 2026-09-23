@@ -57,6 +57,8 @@ fi
 
 BARCODE=$(printf "barcode%02d" "$PBS_ARRAY_INDEX")
 
+SAMPLE_NAME="${RUN_NUMBER}-sup_${BARCODE}"
+
 # =============================================================================
 # 1. NASTAVENÍ UŽIVATELE A CEST
 # =============================================================================
@@ -66,13 +68,13 @@ mkdir -p "$BASE_DIR/alignment/pbs_outputs_statistics"
 
 # Vstup nyní bere z minulé složky alignmentu (BAM soubory)
 BAM_INPUT_DIR="$BASE_DIR/RESULTS/sup-alignment_results/sup-alignment_output_${RUN_NUMBER}"
-INPUT_BAM="$BAM_INPUT_DIR/${RUN_NUMBER}_${BARCODE}.bam"
-INPUT_BAI="$BAM_INPUT_DIR/${RUN_NUMBER}_${BARCODE}.bam.bai"
+INPUT_BAM="$BAM_INPUT_DIR/$SAMPLE_NAME.bam"
+INPUT_BAI="$BAM_INPUT_DIR/$SAMPLE_NAME.bam.bai"
 
 # Výsledky ze statistiky
 STATS_OUTPUT_DIR="$BASE_DIR/RESULTS/sup-statistics_results"
 RUN_STATS_OUTPUT_DIR="$STATS_OUTPUT_DIR/sup-statistics_output_${RUN_NUMBER}"
-FINAL_stats_OUTPUT_DIR="$RUN_STATS_OUTPUT_DIR/${RUN_NUMBER}-sup_${BARCODE}"
+FINAL_stats_OUTPUT_DIR="$RUN_STATS_OUTPUT_DIR/$SAMPLE_NAME"
 
 LOG_DIR="$BASE_DIR/alignment/run_logs_statistics"
 CENTRAL_LOG="$LOG_DIR/sup-alignment_statistics_history.txt"
@@ -98,8 +100,6 @@ if [ -z "${SCRATCHDIR:-}" ]; then
     echo "Chyba: SCRATCHDIR není nastaven." >&2
     exit 1
 fi
-
-SAMPLE_NAME="${RUN_NUMBER}-sup_${BARCODE}"
 
 # =============================================================================
 # 3. PŘÍPRAVA PROSTŘEDÍ
