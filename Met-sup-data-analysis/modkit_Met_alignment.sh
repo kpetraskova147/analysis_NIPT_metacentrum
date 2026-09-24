@@ -66,7 +66,7 @@ mkdir -p "pbs_outputs"
 
 # Umístění vstupních dat - FASTQ soubory (výsledek ze sekvenace)
 INPUT_BAM_DIR="$BASE_DIR/RESULTS/Met-SUP-basecall_results/Met-SUP-basecall_output_${RUN_NUMBER}"
-INPUT_BAM="${INPUT_BAM_DIR}/${RUN_NUMBER}-Met-SUP_${BARCODE}_methylation.bam"
+INPUT_BAM="${INPUT_BAM_DIR}/${RUN_NUMBER}-SUP_${BARCODE}_methylation.bam"
 
 # Umístění referenčního genomu (komprimovaný FASTA soubor)
 REF_GENOME="$BASE_DIR/alignment/reference_genome_Hg38/hg38.mmi"
@@ -101,7 +101,7 @@ if [ -z "${SCRATCHDIR:-}" ]; then
     exit 1
 fi
 
-SAMPLE_NAME=${RUN_NUMBER}-sup-Met_${BARCODE}
+SAMPLE_NAME=${RUN_NUMBER}-Met-SUP_${BARCODE}
 
 # =============================================================================
 # 3. PŘÍPRAVA PROSTŘEDÍ - načtení modulu minimap2 pro alignment
@@ -114,13 +114,13 @@ module add minimap2
 # 4. PŘESUN DO SCRATCHE, INFO DO LOGŮ
 # =============================================================================
 cd "$SCRATCHDIR"
-echo "[1/3] Slučuji všechny FASTQ soubory z barcodu do scratche..." > sup-alignment_info.txt
+echo "[1/3] Slučuji všechny FASTQ soubory z barcodu do scratche..." > Met-SUP-alignment_info.txt
 
-echo "[1/3] Kopíruji unaligned BAM do scratche..." > sup-alignment_info.txt
+echo "[1/3] Kopíruji unaligned BAM do scratche..." > Met-SUP-alignment_info.txt
 cp "$INPUT_BAM" ./input_unaligned.bam
 cp "$REF_GENOME" ./hg38.mmi
 
-JOB_LOG="$SCRATCHDIR/sup-alignment_info.txt"
+JOB_LOG="$SCRATCHDIR/Met-SUP-alignment_info.txt"
 TMP_BAM="$SCRATCHDIR/${RUN_NUMBER}_${BARCODE}.bam"              # dočasný BAM soubor ve scratchi
 TMP_BAM_BAI="$SCRATCHDIR/${RUN_NUMBER}_${BARCODE}.bam.bai"      # dočasný indexovaný BAM soubor ve scratchi
 
@@ -188,7 +188,7 @@ echo "[3/3] Kopíruji výsledky do $FINAL_bam_OUTPUT_DIR..." | tee -a "$JOB_LOG"
 
 cp "$TMP_BAM" "$FINAL_bam_OUTPUT_DIR/${SAMPLE_NAME}.bam"
 cp "$TMP_BAM_BAI" "$FINAL_bam_OUTPUT_DIR/${SAMPLE_NAME}.bam.bai"
-cp "$JOB_LOG" "$FINAL_bam_OUTPUT_DIR/sup-alignment_info.txt"
+cp "$JOB_LOG" "$FINAL_bam_OUTPUT_DIR/Met-SUP-alignment_info.txt"
 
-echo "ÚSPĚCH: HOTOVO! Výsledky zkopírovány do $FINAL_bam_OUTPUT_DIR" | tee -a "$FINAL_bam_OUTPUT_DIR/sup-alignment_info.txt"
+echo "ÚSPĚCH: HOTOVO! Výsledky zkopírovány do $FINAL_bam_OUTPUT_DIR" | tee -a "$FINAL_bam_OUTPUT_DIR/Met-SUP-alignment_info.txt"
 rm -rf $SCRATCHDIR/*
