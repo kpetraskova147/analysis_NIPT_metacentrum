@@ -1,0 +1,756 @@
+---
+title: "FF-ratio_Wilcoxon-test"
+author: "Karolina.Petraskova"
+date: "2026-09-29"
+output: html_document
+---
+
+```{r All the runs - fast quality}
+library(ggplot2)
+
+# 1. Načtení všech 4 souborů
+run1 <- read.csv("fast-fragment_ratios_run1_2026-09-29.csv")
+run2 <- read.csv("fast-fragment_ratios_run2_2026-09-29.csv")
+run3 <- read.csv("fast-fragment_ratios_run3_2026-09-29.csv")
+run4 <- read.csv("fast-fragment_ratios_run4_2026-09-29.csv")
+
+# 2. Spojení všech dat do jedné velké tabulky
+data <- rbind(run1, run2, run3, run4)
+
+# 3. Extrakce čísla runu a čísla barcodu
+data$Run <- gsub("_.*", "", data$Sample)
+data$BarcodeNum <- as.numeric(gsub(".*barcode", "", data$Sample))
+
+# 4. Přiřazení do skupin: 1-12 = Automatic, zbytek = Manual
+data$Isolation <- ifelse(data$BarcodeNum <= 12, "Automatic", "Manual")
+
+# 5. Příprava pro párový test (seřazení dat, aby k sobě vzorky přesně pasovaly)
+data$SampleID <- ifelse(data$BarcodeNum <= 12, data$BarcodeNum, data$BarcodeNum - 12)
+data <- data[order(data$Run, data$SampleID, data$Isolation), ]
+
+# 6. Párový Wilcoxonův test
+auto_ratios <- data$Ratio[data$Isolation == "Automatic"]
+manual_ratios <- data$Ratio[data$Isolation == "Manual"]
+
+wilcox.test(auto_ratios, manual_ratios, paired = TRUE)
+
+# 7. Vytvoření boxplotu
+ggplot(data, aes(x = Isolation, y = Ratio, fill = Isolation)) +
+  geom_boxplot(alpha = 0.7) +
+  geom_jitter(width = 0.2, size = 2, alpha = 0.6) +
+  theme_minimal() +
+  labs(title = "fast - Fetal Fraction: Automatic vs. Manual DNA Isolation (All Runs)",
+       y = "Fetal Fraction Ratio (< 143 bp)",
+       x = "Isolation Method") +
+  scale_fill_manual(values = c("Automatic" = "#4C72B0", "Manual" = "#C44E52")) +
+  theme(legend.position = "none")
+```
+```{r 8. ULOŽENÍ VÝSLEDKŮ (EXPORT) }
+
+# 8A. Uložení grafu jako PNG (název se mění podle experimentu)
+ggsave("boxplot_fast_All-Runs.png", plot = p, width = 8, height = 6, dpi = 300)
+
+# 8B. Uložení p-hodnoty do společného master souboru
+# Definice jména vašeho hlavního souboru
+master_csv <- "All_Experiments_P_Values.csv"
+
+# Vytvoření jednoho řádku s výsledky pro tento konkrétní běh
+results_row <- data.frame(
+  Date = Sys.Date(),                             # Dnešní datum
+  Experiment = "fast_All-Runs",             # Změňte název pro každý nový skript/experiment
+  Test_Type = "Paired Wilcoxon",
+  P_Value = w_test$p.value
+)
+
+# Připsání řádku do master souboru (append = TRUE)
+write.table(results_row, file = master_csv, append = TRUE, sep = ",", 
+            col.names = !file.exists(master_csv), row.names = FALSE)
+```
+
+
+
+```{r Run1,2 - fast quality}
+library(ggplot2)
+
+# 1. Načtení všech 4 souborů
+run1 <- read.csv("fast-fragment_ratios_run1_2026-09-29.csv")
+run2 <- read.csv("fast-fragment_ratios_run2_2026-09-29.csv")
+
+# 2. Spojení všech dat do jedné velké tabulky
+data <- rbind(run1, run2)
+
+# 3. Extrakce čísla runu a čísla barcodu
+data$Run <- gsub("_.*", "", data$Sample)
+data$BarcodeNum <- as.numeric(gsub(".*barcode", "", data$Sample))
+
+# 4. Přiřazení do skupin: 1-12 = Automatic, zbytek = Manual
+data$Isolation <- ifelse(data$BarcodeNum <= 12, "Automatic", "Manual")
+
+# 5. Příprava pro párový test (seřazení dat, aby k sobě vzorky přesně pasovaly)
+data$SampleID <- ifelse(data$BarcodeNum <= 12, data$BarcodeNum, data$BarcodeNum - 12)
+data <- data[order(data$Run, data$SampleID, data$Isolation), ]
+
+# 6. Párový Wilcoxonův test
+auto_ratios <- data$Ratio[data$Isolation == "Automatic"]
+manual_ratios <- data$Ratio[data$Isolation == "Manual"]
+
+wilcox.test(auto_ratios, manual_ratios, paired = TRUE)
+
+# 7. Vytvoření boxplotu
+ggplot(data, aes(x = Isolation, y = Ratio, fill = Isolation)) +
+  geom_boxplot(alpha = 0.7) +
+  geom_jitter(width = 0.2, size = 2, alpha = 0.6) +
+  theme_minimal() +
+  labs(title = "fast - Fetal Fraction: Automatic vs. Manual DNA Isolation (Run1,2)",
+       y = "Fetal Fraction Ratio (< 143 bp)",
+       x = "Isolation Method") +
+  scale_fill_manual(values = c("Automatic" = "#4C72B0", "Manual" = "#C44E52")) +
+  theme(legend.position = "none")
+```
+```{r 8. ULOŽENÍ VÝSLEDKŮ (EXPORT) }
+
+# 8A. Uložení grafu jako PNG (název se mění podle experimentu)
+ggsave("boxplot_fast_Run1_2.png", plot = p, width = 8, height = 6, dpi = 300)
+
+# 8B. Uložení p-hodnoty do společného master souboru
+# Definice jména vašeho hlavního souboru
+master_csv <- "All_Experiments_P_Values.csv"
+
+# Vytvoření jednoho řádku s výsledky pro tento konkrétní běh
+results_row <- data.frame(
+  Date = Sys.Date(),                             # Dnešní datum
+  Experiment = "fast_Run1_2",             # Změňte název pro každý nový skript/experiment
+  Test_Type = "Paired Wilcoxon",
+  P_Value = w_test$p.value
+)
+
+# Připsání řádku do master souboru (append = TRUE)
+write.table(results_row, file = master_csv, append = TRUE, sep = ",", 
+            col.names = !file.exists(master_csv), row.names = FALSE)
+```
+
+
+
+```{r Run3,4 - fast quality}
+library(ggplot2)
+
+# 1. Načtení všech 4 souborů
+run3 <- read.csv("fast-fragment_ratios_run3_2026-09-29.csv")
+run4 <- read.csv("fast-fragment_ratios_run4_2026-09-29.csv")
+
+# 2. Spojení všech dat do jedné velké tabulky
+data <- rbind(run3, run4)
+
+# 3. Extrakce čísla runu a čísla barcodu
+data$Run <- gsub("_.*", "", data$Sample)
+data$BarcodeNum <- as.numeric(gsub(".*barcode", "", data$Sample))
+
+# 4. Přiřazení do skupin: 1-12 = Automatic, zbytek = Manual
+data$Isolation <- ifelse(data$BarcodeNum <= 12, "Automatic", "Manual")
+
+# 5. Příprava pro párový test (seřazení dat, aby k sobě vzorky přesně pasovaly)
+data$SampleID <- ifelse(data$BarcodeNum <= 12, data$BarcodeNum, data$BarcodeNum - 12)
+data <- data[order(data$Run, data$SampleID, data$Isolation), ]
+
+# 6. Párový Wilcoxonův test
+auto_ratios <- data$Ratio[data$Isolation == "Automatic"]
+manual_ratios <- data$Ratio[data$Isolation == "Manual"]
+
+wilcox.test(auto_ratios, manual_ratios, paired = TRUE)
+
+# 7. Vytvoření boxplotu
+ggplot(data, aes(x = Isolation, y = Ratio, fill = Isolation)) +
+  geom_boxplot(alpha = 0.7) +
+  geom_jitter(width = 0.2, size = 2, alpha = 0.6) +
+  theme_minimal() +
+  labs(title = "fast - Fetal Fraction: Automatic vs. Manual DNA Isolation (Run3,4)",
+       y = "Fetal Fraction Ratio (< 143 bp)",
+       x = "Isolation Method") +
+  scale_fill_manual(values = c("Automatic" = "#4C72B0", "Manual" = "#C44E52")) +
+  theme(legend.position = "none")
+```
+```{r 8. ULOŽENÍ VÝSLEDKŮ (EXPORT) }
+
+# 8A. Uložení grafu jako PNG (název se mění podle experimentu)
+ggsave("boxplot_fast_Run3_4.png", plot = p, width = 8, height = 6, dpi = 300)
+
+# 8B. Uložení p-hodnoty do společného master souboru
+# Definice jména vašeho hlavního souboru
+master_csv <- "All_Experiments_P_Values.csv"
+
+# Vytvoření jednoho řádku s výsledky pro tento konkrétní běh
+results_row <- data.frame(
+  Date = Sys.Date(),                             # Dnešní datum
+  Experiment = "fast_Run3_4",             # Změňte název pro každý nový skript/experiment
+  Test_Type = "Paired Wilcoxon",
+  P_Value = w_test$p.value
+)
+
+# Připsání řádku do master souboru (append = TRUE)
+write.table(results_row, file = master_csv, append = TRUE, sep = ",", 
+            col.names = !file.exists(master_csv), row.names = FALSE)
+```
+
+
+
+```{r All the runs - HAC quality}
+library(ggplot2)
+
+# 1. Načtení všech 4 souborů
+run1 <- read.csv("HAC-fragment_ratios_run1_2026-09-29.csv")
+run2 <- read.csv("HAC-fragment_ratios_run2_2026-09-29.csv")
+run3 <- read.csv("HAC-fragment_ratios_run3_2026-09-29.csv")
+run4 <- read.csv("HAC-fragment_ratios_run4_2026-09-29.csv")
+
+# 2. Spojení všech dat do jedné velké tabulky
+data <- rbind(run1, run2, run3, run4)
+
+# 3. Extrakce čísla runu a čísla barcodu
+data$Run <- gsub("_.*", "", data$Sample)
+data$BarcodeNum <- as.numeric(gsub(".*barcode", "", data$Sample))
+
+# 4. Přiřazení do skupin: 1-12 = Automatic, zbytek = Manual
+data$Isolation <- ifelse(data$BarcodeNum <= 12, "Automatic", "Manual")
+
+# 5. Příprava pro párový test (seřazení dat, aby k sobě vzorky přesně pasovaly)
+data$SampleID <- ifelse(data$BarcodeNum <= 12, data$BarcodeNum, data$BarcodeNum - 12)
+data <- data[order(data$Run, data$SampleID, data$Isolation), ]
+
+# 6. Párový Wilcoxonův test
+auto_ratios <- data$Ratio[data$Isolation == "Automatic"]
+manual_ratios <- data$Ratio[data$Isolation == "Manual"]
+
+wilcox.test(auto_ratios, manual_ratios, paired = TRUE)
+
+# 7. Vytvoření boxplotu
+ggplot(data, aes(x = Isolation, y = Ratio, fill = Isolation)) +
+  geom_boxplot(alpha = 0.7) +
+  geom_jitter(width = 0.2, size = 2, alpha = 0.6) +
+  theme_minimal() +
+  labs(title = "HAC - Fetal Fraction: Automatic vs. Manual DNA Isolation (All Runs)",
+       y = "Fetal Fraction Ratio (< 143 bp)",
+       x = "Isolation Method") +
+  scale_fill_manual(values = c("Automatic" = "#4C72B0", "Manual" = "#C44E52")) +
+  theme(legend.position = "none")
+```
+```{r 8. ULOŽENÍ VÝSLEDKŮ (EXPORT) }
+
+# 8A. Uložení grafu jako PNG (název se mění podle experimentu)
+ggsave("boxplot_HAC_All-Runs.png", plot = p, width = 8, height = 6, dpi = 300)
+
+# 8B. Uložení p-hodnoty do společného master souboru
+# Definice jména vašeho hlavního souboru
+master_csv <- "All_Experiments_P_Values.csv"
+
+# Vytvoření jednoho řádku s výsledky pro tento konkrétní běh
+results_row <- data.frame(
+  Date = Sys.Date(),                             # Dnešní datum
+  Experiment = "HAC_All-Runs",             # Změňte název pro každý nový skript/experiment
+  Test_Type = "Paired Wilcoxon",
+  P_Value = w_test$p.value
+)
+
+# Připsání řádku do master souboru (append = TRUE)
+write.table(results_row, file = master_csv, append = TRUE, sep = ",", 
+            col.names = !file.exists(master_csv), row.names = FALSE)
+```
+
+
+```{r Run1,2 - HAC quality}
+library(ggplot2)
+
+# 1. Načtení všech 4 souborů
+run1 <- read.csv("HAC-fragment_ratios_run1_2026-09-29.csv")
+run2 <- read.csv("HAC-fragment_ratios_run2_2026-09-29.csv")
+
+# 2. Spojení všech dat do jedné velké tabulky
+data <- rbind(run1, run2)
+
+# 3. Extrakce čísla runu a čísla barcodu
+data$Run <- gsub("_.*", "", data$Sample)
+data$BarcodeNum <- as.numeric(gsub(".*barcode", "", data$Sample))
+
+# 4. Přiřazení do skupin: 1-12 = Automatic, zbytek = Manual
+data$Isolation <- ifelse(data$BarcodeNum <= 12, "Automatic", "Manual")
+
+# 5. Příprava pro párový test (seřazení dat, aby k sobě vzorky přesně pasovaly)
+data$SampleID <- ifelse(data$BarcodeNum <= 12, data$BarcodeNum, data$BarcodeNum - 12)
+data <- data[order(data$Run, data$SampleID, data$Isolation), ]
+
+# 6. Párový Wilcoxonův test
+auto_ratios <- data$Ratio[data$Isolation == "Automatic"]
+manual_ratios <- data$Ratio[data$Isolation == "Manual"]
+
+wilcox.test(auto_ratios, manual_ratios, paired = TRUE)
+
+# 7. Vytvoření boxplotu
+ggplot(data, aes(x = Isolation, y = Ratio, fill = Isolation)) +
+  geom_boxplot(alpha = 0.7) +
+  geom_jitter(width = 0.2, size = 2, alpha = 0.6) +
+  theme_minimal() +
+  labs(title = "HAC - Fetal Fraction: Automatic vs. Manual DNA Isolation (Run1,2)",
+       y = "Fetal Fraction Ratio (< 143 bp)",
+       x = "Isolation Method") +
+  scale_fill_manual(values = c("Automatic" = "#4C72B0", "Manual" = "#C44E52")) +
+  theme(legend.position = "none")
+```
+```{r 8. ULOŽENÍ VÝSLEDKŮ (EXPORT) }
+
+# 8A. Uložení grafu jako PNG (název se mění podle experimentu)
+ggsave("boxplot_HAC_Run1_2.png", plot = p, width = 8, height = 6, dpi = 300)
+
+# 8B. Uložení p-hodnoty do společného master souboru
+# Definice jména vašeho hlavního souboru
+master_csv <- "All_Experiments_P_Values.csv"
+
+# Vytvoření jednoho řádku s výsledky pro tento konkrétní běh
+results_row <- data.frame(
+  Date = Sys.Date(),                             # Dnešní datum
+  Experiment = "HAC_Run1_2",             # Změňte název pro každý nový skript/experiment
+  Test_Type = "Paired Wilcoxon",
+  P_Value = w_test$p.value
+)
+
+# Připsání řádku do master souboru (append = TRUE)
+write.table(results_row, file = master_csv, append = TRUE, sep = ",", 
+            col.names = !file.exists(master_csv), row.names = FALSE)
+```
+
+
+```{r Run3,4 - HAC quality}
+library(ggplot2)
+
+# 1. Načtení všech 4 souborů
+run3 <- read.csv("HAC-fragment_ratios_run3_2026-09-29.csv")
+run4 <- read.csv("HAC-fragment_ratios_run4_2026-09-29.csv")
+
+# 2. Spojení všech dat do jedné velké tabulky
+data <- rbind(run3, run4)
+
+# 3. Extrakce čísla runu a čísla barcodu
+data$Run <- gsub("_.*", "", data$Sample)
+data$BarcodeNum <- as.numeric(gsub(".*barcode", "", data$Sample))
+
+# 4. Přiřazení do skupin: 1-12 = Automatic, zbytek = Manual
+data$Isolation <- ifelse(data$BarcodeNum <= 12, "Automatic", "Manual")
+
+# 5. Příprava pro párový test (seřazení dat, aby k sobě vzorky přesně pasovaly)
+data$SampleID <- ifelse(data$BarcodeNum <= 12, data$BarcodeNum, data$BarcodeNum - 12)
+data <- data[order(data$Run, data$SampleID, data$Isolation), ]
+
+# 6. Párový Wilcoxonův test
+auto_ratios <- data$Ratio[data$Isolation == "Automatic"]
+manual_ratios <- data$Ratio[data$Isolation == "Manual"]
+
+wilcox.test(auto_ratios, manual_ratios, paired = TRUE)
+
+# 7. Vytvoření boxplotu
+ggplot(data, aes(x = Isolation, y = Ratio, fill = Isolation)) +
+  geom_boxplot(alpha = 0.7) +
+  geom_jitter(width = 0.2, size = 2, alpha = 0.6) +
+  theme_minimal() +
+  labs(tile = "HAC - Fetal Fraction: Automatic vs. Manual DNA Isolation (Run3,4)",
+       y = "Fetal Fraction Ratio (< 143 bp)",
+       x = "Isolation Method") +
+  scale_fill_manual(values = c("Automatic" = "#4C72B0", "Manual" = "#C44E52")) +
+  theme(legend.position = "none")
+```
+```{r 8. ULOŽENÍ VÝSLEDKŮ (EXPORT) }
+
+# 8A. Uložení grafu jako PNG (název se mění podle experimentu)
+ggsave("boxplot_HAC_Run3_4.png", plot = p, width = 8, height = 6, dpi = 300)
+
+# 8B. Uložení p-hodnoty do společného master souboru
+# Definice jména vašeho hlavního souboru
+master_csv <- "All_Experiments_P_Values.csv"
+
+# Vytvoření jednoho řádku s výsledky pro tento konkrétní běh
+results_row <- data.frame(
+  Date = Sys.Date(),                             # Dnešní datum
+  Experiment = "HAC_Run3_4",             # Změňte název pro každý nový skript/experiment
+  Test_Type = "Paired Wilcoxon",
+  P_Value = w_test$p.value
+)
+
+# Připsání řádku do master souboru (append = TRUE)
+write.table(results_row, file = master_csv, append = TRUE, sep = ",", 
+            col.names = !file.exists(master_csv), row.names = FALSE)
+```
+
+
+
+```{r All the runs - sup quality}
+library(ggplot2)
+
+# 1. Načtení všech 4 souborů
+run1 <- read.csv("sup-fragment_ratios_run1_2026-09-29.csv")
+run2 <- read.csv("sup-fragment_ratios_run2_2026-09-29.csv")
+run3 <- read.csv("sup-fragment_ratios_run3_2026-09-29.csv")
+run4 <- read.csv("sup-fragment_ratios_run4_2026-09-29.csv")
+
+# 2. Spojení všech dat do jedné velké tabulky
+data <- rbind(run1, run2, run3, run4)
+
+# 3. Extrakce čísla runu a čísla barcodu
+data$Run <- gsub("_.*", "", data$Sample)
+data$BarcodeNum <- as.numeric(gsub(".*barcode", "", data$Sample))
+
+# 4. Přiřazení do skupin: 1-12 = Automatic, zbytek = Manual
+data$Isolation <- ifelse(data$BarcodeNum <= 12, "Automatic", "Manual")
+
+# 5. Příprava pro párový test (seřazení dat, aby k sobě vzorky přesně pasovaly)
+data$SampleID <- ifelse(data$BarcodeNum <= 12, data$BarcodeNum, data$BarcodeNum - 12)
+data <- data[order(data$Run, data$SampleID, data$Isolation), ]
+
+# 6. Párový Wilcoxonův test
+auto_ratios <- data$Ratio[data$Isolation == "Automatic"]
+manual_ratios <- data$Ratio[data$Isolation == "Manual"]
+
+wilcox.test(auto_ratios, manual_ratios, paired = TRUE)
+
+# 7. Vytvoření boxplotu
+ggplot(data, aes(x = Isolation, y = Ratio, fill = Isolation)) +
+  geom_boxplot(alpha = 0.7) +
+  geom_jitter(width = 0.2, size = 2, alpha = 0.6) +
+  theme_minimal() +
+  labs(title = "sup - Fetal Fraction: Automatic vs. Manual DNA Isolation (All Runs)",
+       y = "Fetal Fraction Ratio (< 143 bp)",
+       x = "Isolation Method") +
+  scale_fill_manual(values = c("Automatic" = "#4C72B0", "Manual" = "#C44E52")) +
+  theme(legend.position = "none")
+```
+```{r 8. ULOŽENÍ VÝSLEDKŮ (EXPORT) }
+
+# 8A. Uložení grafu jako PNG (název se mění podle experimentu)
+ggsave("boxplot_sup_All-Runs.png", plot = p, width = 8, height = 6, dpi = 300)
+
+# 8B. Uložení p-hodnoty do společného master souboru
+# Definice jména vašeho hlavního souboru
+master_csv <- "All_Experiments_P_Values.csv"
+
+# Vytvoření jednoho řádku s výsledky pro tento konkrétní běh
+results_row <- data.frame(
+  Date = Sys.Date(),                             # Dnešní datum
+  Experiment = "sup_All-Runs",             # Změňte název pro každý nový skript/experiment
+  Test_Type = "Paired Wilcoxon",
+  P_Value = w_test$p.value
+)
+
+# Připsání řádku do master souboru (append = TRUE)
+write.table(results_row, file = master_csv, append = TRUE, sep = ",", 
+            col.names = !file.exists(master_csv), row.names = FALSE)
+```
+
+
+
+```{r Run1,2 - sup quality}
+library(ggplot2)
+
+# 1. Načtení všech 4 souborů
+run1 <- read.csv("sup-fragment_ratios_run1_2026-09-29.csv")
+run2 <- read.csv("sup-fragment_ratios_run2_2026-09-29.csv")
+
+# 2. Spojení všech dat do jedné velké tabulky
+data <- rbind(run1, run2)
+
+# 3. Extrakce čísla runu a čísla barcodu
+data$Run <- gsub("_.*", "", data$Sample)
+data$BarcodeNum <- as.numeric(gsub(".*barcode", "", data$Sample))
+
+# 4. Přiřazení do skupin: 1-12 = Automatic, zbytek = Manual
+data$Isolation <- ifelse(data$BarcodeNum <= 12, "Automatic", "Manual")
+
+# 5. Příprava pro párový test (seřazení dat, aby k sobě vzorky přesně pasovaly)
+data$SampleID <- ifelse(data$BarcodeNum <= 12, data$BarcodeNum, data$BarcodeNum - 12)
+data <- data[order(data$Run, data$SampleID, data$Isolation), ]
+
+# 6. Párový Wilcoxonův test
+auto_ratios <- data$Ratio[data$Isolation == "Automatic"]
+manual_ratios <- data$Ratio[data$Isolation == "Manual"]
+
+wilcox.test(auto_ratios, manual_ratios, paired = TRUE)
+
+# 7. Vytvoření boxplotu
+ggplot(data, aes(x = Isolation, y = Ratio, fill = Isolation)) +
+  geom_boxplot(alpha = 0.7) +
+  geom_jitter(width = 0.2, size = 2, alpha = 0.6) +
+  theme_minimal() +
+  labs(title = "sup - Fetal Fraction: Automatic vs. Manual DNA Isolation (Run1,2)",
+       y = "Fetal Fraction Ratio (< 143 bp)",
+       x = "Isolation Method") +
+  scale_fill_manual(values = c("Automatic" = "#4C72B0", "Manual" = "#C44E52")) +
+  theme(legend.position = "none")
+```
+```{r 8. ULOŽENÍ VÝSLEDKŮ (EXPORT) }
+
+# 8A. Uložení grafu jako PNG (název se mění podle experimentu)
+ggsave("boxplot_sup_Run1_2.png", plot = p, width = 8, height = 6, dpi = 300)
+
+# 8B. Uložení p-hodnoty do společného master souboru
+# Definice jména vašeho hlavního souboru
+master_csv <- "All_Experiments_P_Values.csv"
+
+# Vytvoření jednoho řádku s výsledky pro tento konkrétní běh
+results_row <- data.frame(
+  Date = Sys.Date(),                             # Dnešní datum
+  Experiment = "sup_Run1_2",             # Změňte název pro každý nový skript/experiment
+  Test_Type = "Paired Wilcoxon",
+  P_Value = w_test$p.value
+)
+
+# Připsání řádku do master souboru (append = TRUE)
+write.table(results_row, file = master_csv, append = TRUE, sep = ",", 
+            col.names = !file.exists(master_csv), row.names = FALSE)
+```
+
+
+```{r All the runs - sup quality}
+library(ggplot2)
+
+# 1. Načtení všech 4 souborů
+run3 <- read.csv("sup-fragment_ratios_run3_2026-09-29.csv")
+run4 <- read.csv("sup-fragment_ratios_run4_2026-09-29.csv")
+
+# 2. Spojení všech dat do jedné velké tabulky
+data <- rbind(run3, run4)
+
+# 3. Extrakce čísla runu a čísla barcodu
+data$Run <- gsub("_.*", "", data$Sample)
+data$BarcodeNum <- as.numeric(gsub(".*barcode", "", data$Sample))
+
+# 4. Přiřazení do skupin: 1-12 = Automatic, zbytek = Manual
+data$Isolation <- ifelse(data$BarcodeNum <= 12, "Automatic", "Manual")
+
+# 5. Příprava pro párový test (seřazení dat, aby k sobě vzorky přesně pasovaly)
+data$SampleID <- ifelse(data$BarcodeNum <= 12, data$BarcodeNum, data$BarcodeNum - 12)
+data <- data[order(data$Run, data$SampleID, data$Isolation), ]
+
+# 6. Párový Wilcoxonův test
+auto_ratios <- data$Ratio[data$Isolation == "Automatic"]
+manual_ratios <- data$Ratio[data$Isolation == "Manual"]
+
+wilcox.test(auto_ratios, manual_ratios, paired = TRUE)
+
+# 7. Vytvoření boxplotu
+ggplot(data, aes(x = Isolation, y = Ratio, fill = Isolation)) +
+  geom_boxplot(alpha = 0.7) +
+  geom_jitter(width = 0.2, size = 2, alpha = 0.6) +
+  theme_minimal() +
+  labs(title = "sup - Fetal Fraction: Automatic vs. Manual DNA Isolation (Run3,4)",
+       y = "Fetal Fraction Ratio (< 143 bp)",
+       x = "Isolation Method") +
+  scale_fill_manual(values = c("Automatic" = "#4C72B0", "Manual" = "#C44E52")) +
+  theme(legend.position = "none")
+```
+```{r 8. ULOŽENÍ VÝSLEDKŮ (EXPORT) }
+
+# 8A. Uložení grafu jako PNG (název se mění podle experimentu)
+ggsave("boxplot_sup_Run3_4.png", plot = p, width = 8, height = 6, dpi = 300)
+
+# 8B. Uložení p-hodnoty do společného master souboru
+# Definice jména vašeho hlavního souboru
+master_csv <- "All_Experiments_P_Values.csv"
+
+# Vytvoření jednoho řádku s výsledky pro tento konkrétní běh
+results_row <- data.frame(
+  Date = Sys.Date(),                             # Dnešní datum
+  Experiment = "sup_Run3_4",             # Změňte název pro každý nový skript/experiment
+  Test_Type = "Paired Wilcoxon",
+  P_Value = w_test$p.value
+)
+
+# Připsání řádku do master souboru (append = TRUE)
+write.table(results_row, file = master_csv, append = TRUE, sep = ",", 
+            col.names = !file.exists(master_csv), row.names = FALSE)
+```
+
+
+
+```{r All the runs - MinKNOW quality}
+library(ggplot2)
+
+# 1. Načtení všech 4 souborů
+run1 <- read.csv("MinKNOW-fragment_ratios_run1_2026-09-29.csv")
+run2 <- read.csv("MinKNOW-fragment_ratios_run2_2026-09-29.csv")
+run3 <- read.csv("MinKNOW-fragment_ratios_run3_2026-09-29.csv")
+run4 <- read.csv("MinKNOW-fragment_ratios_run4_2026-09-29.csv")
+
+# 2. Spojení všech dat do jedné velké tabulky
+data <- rbind(run1, run2, run3, run4)
+
+# 3. Extrakce čísla runu a čísla barcodu
+data$Run <- gsub("_.*", "", data$Sample)
+data$BarcodeNum <- as.numeric(gsub(".*barcode", "", data$Sample))
+
+# 4. Přiřazení do skupin: 1-12 = Automatic, zbytek = Manual
+data$Isolation <- ifelse(data$BarcodeNum <= 12, "Automatic", "Manual")
+
+# 5. Příprava pro párový test (seřazení dat, aby k sobě vzorky přesně pasovaly)
+data$SampleID <- ifelse(data$BarcodeNum <= 12, data$BarcodeNum, data$BarcodeNum - 12)
+data <- data[order(data$Run, data$SampleID, data$Isolation), ]
+
+# 6. Párový Wilcoxonův test
+auto_ratios <- data$Ratio[data$Isolation == "Automatic"]
+manual_ratios <- data$Ratio[data$Isolation == "Manual"]
+
+wilcox.test(auto_ratios, manual_ratios, paired = TRUE)
+
+# 7. Vytvoření boxplotu
+ggplot(data, aes(x = Isolation, y = Ratio, fill = Isolation)) +
+  geom_boxplot(alpha = 0.7) +
+  geom_jitter(width = 0.2, size = 2, alpha = 0.6) +
+  theme_minimal() +
+  labs(title = "MinKNOW - Fetal Fraction: Automatic vs. Manual DNA Isolation (All Runs)",
+       y = "Fetal Fraction Ratio (< 143 bp)",
+       x = "Isolation Method") +
+  scale_fill_manual(values = c("Automatic" = "#4C72B0", "Manual" = "#C44E52")) +
+  theme(legend.position = "none")
+```
+```{r 8. ULOŽENÍ VÝSLEDKŮ (EXPORT) }
+
+# 8A. Uložení grafu jako PNG (název se mění podle experimentu)
+ggsave("boxplot_MinKNOW_All-runs.png", plot = p, width = 8, height = 6, dpi = 300)
+
+# 8B. Uložení p-hodnoty do společného master souboru
+# Definice jména vašeho hlavního souboru
+master_csv <- "All_Experiments_P_Values.csv"
+
+# Vytvoření jednoho řádku s výsledky pro tento konkrétní běh
+results_row <- data.frame(
+  Date = Sys.Date(),                             # Dnešní datum
+  Experiment = "MinKNOW_All-runs",             # Změňte název pro každý nový skript/experiment
+  Test_Type = "Paired Wilcoxon",
+  P_Value = w_test$p.value
+)
+
+# Připsání řádku do master souboru (append = TRUE)
+write.table(results_row, file = master_csv, append = TRUE, sep = ",", 
+            col.names = !file.exists(master_csv), row.names = FALSE)
+```
+
+
+
+
+```{r Run1,2 - MinKNOW quality}
+library(ggplot2)
+
+# 1. Načtení všech 4 souborů
+run1 <- read.csv("MinKNOW-fragment_ratios_run1_2026-09-29.csv")
+run2 <- read.csv("MinKNOW-fragment_ratios_run2_2026-09-29.csv")
+
+# 2. Spojení všech dat do jedné velké tabulky
+data <- rbind(run1, run2)
+
+# 3. Extrakce čísla runu a čísla barcodu
+data$Run <- gsub("_.*", "", data$Sample)
+data$BarcodeNum <- as.numeric(gsub(".*barcode", "", data$Sample))
+
+# 4. Přiřazení do skupin: 1-12 = Automatic, zbytek = Manual
+data$Isolation <- ifelse(data$BarcodeNum <= 12, "Automatic", "Manual")
+
+# 5. Příprava pro párový test (seřazení dat, aby k sobě vzorky přesně pasovaly)
+data$SampleID <- ifelse(data$BarcodeNum <= 12, data$BarcodeNum, data$BarcodeNum - 12)
+data <- data[order(data$Run, data$SampleID, data$Isolation), ]
+
+# 6. Párový Wilcoxonův test
+auto_ratios <- data$Ratio[data$Isolation == "Automatic"]
+manual_ratios <- data$Ratio[data$Isolation == "Manual"]
+
+wilcox.test(auto_ratios, manual_ratios, paired = TRUE)
+
+# 7. Vytvoření boxplotu
+ggplot(data, aes(x = Isolation, y = Ratio, fill = Isolation)) +
+  geom_boxplot(alpha = 0.7) +
+  geom_jitter(width = 0.2, size = 2, alpha = 0.6) +
+  theme_minimal() +
+  labs(title = "MinKNOW - Fetal Fraction: Automatic vs. Manual DNA Isolation (Run1,2)",
+       y = "Fetal Fraction Ratio (< 143 bp)",
+       x = "Isolation Method") +
+  scale_fill_manual(values = c("Automatic" = "#4C72B0", "Manual" = "#C44E52")) +
+  theme(legend.position = "none")
+```
+```{r 8. ULOŽENÍ VÝSLEDKŮ (EXPORT) }
+
+# 8A. Uložení grafu jako PNG (název se mění podle experimentu)
+ggsave("boxplot_MinKNOW_Run1_2.png", plot = p, width = 8, height = 6, dpi = 300)
+
+# 8B. Uložení p-hodnoty do společného master souboru
+# Definice jména vašeho hlavního souboru
+master_csv <- "All_Experiments_P_Values.csv"
+
+# Vytvoření jednoho řádku s výsledky pro tento konkrétní běh
+results_row <- data.frame(
+  Date = Sys.Date(),                             # Dnešní datum
+  Experiment = "MinKNOW_Run1_2",             # Změňte název pro každý nový skript/experiment
+  Test_Type = "Paired Wilcoxon",
+  P_Value = w_test$p.value
+)
+
+# Připsání řádku do master souboru (append = TRUE)
+write.table(results_row, file = master_csv, append = TRUE, sep = ",", 
+            col.names = !file.exists(master_csv), row.names = FALSE)
+```
+
+
+
+```{r Run3,4 - MinKNOW quality}
+library(ggplot2)
+
+# 1. Načtení všech 4 souborů
+run3 <- read.csv("MinKNOW-fragment_ratios_run3_2026-09-29.csv")
+run4 <- read.csv("MinKNOW-fragment_ratios_run4_2026-09-29.csv")
+
+# 2. Spojení všech dat do jedné velké tabulky
+data <- rbind(run3, run4)
+
+# 3. Extrakce čísla runu a čísla barcodu
+data$Run <- gsub("_.*", "", data$Sample)
+data$BarcodeNum <- as.numeric(gsub(".*barcode", "", data$Sample))
+
+# 4. Přiřazení do skupin: 1-12 = Automatic, zbytek = Manual
+data$Isolation <- ifelse(data$BarcodeNum <= 12, "Automatic", "Manual")
+
+# 5. Příprava pro párový test (seřazení dat, aby k sobě vzorky přesně pasovaly)
+data$SampleID <- ifelse(data$BarcodeNum <= 12, data$BarcodeNum, data$BarcodeNum - 12)
+data <- data[order(data$Run, data$SampleID, data$Isolation), ]
+
+# 6. Párový Wilcoxonův test
+auto_ratios <- data$Ratio[data$Isolation == "Automatic"]
+manual_ratios <- data$Ratio[data$Isolation == "Manual"]
+
+wilcox.test(auto_ratios, manual_ratios, paired = TRUE)
+
+# 7. Vytvoření boxplotu
+ggplot(data, aes(x = Isolation, y = Ratio, fill = Isolation)) +
+  geom_boxplot(alpha = 0.7) +
+  geom_jitter(width = 0.2, size = 2, alpha = 0.6) +
+  theme_minimal() +
+  labs(title = "MinKNOW - Fetal Fraction: Automatic vs. Manual DNA Isolation (Run3,4)",
+       y = "Fetal Fraction Ratio (< 143 bp)",
+       x = "Isolation Method") +
+  scale_fill_manual(values = c("Automatic" = "#4C72B0", "Manual" = "#C44E52")) +
+  theme(legend.position = "none")
+```
+
+
+```{r 8. ULOŽENÍ VÝSLEDKŮ (EXPORT) }
+
+# 8A. Uložení grafu jako PNG (název se mění podle experimentu)
+ggsave("boxplot_MinKNOW_Run3_4.png", plot = p, width = 8, height = 6, dpi = 300)
+
+# 8B. Uložení p-hodnoty do společného master souboru
+# Definice jména vašeho hlavního souboru
+master_csv <- "All_Experiments_P_Values.csv"
+
+# Vytvoření jednoho řádku s výsledky pro tento konkrétní běh
+results_row <- data.frame(
+  Date = Sys.Date(),                             # Dnešní datum
+  Experiment = "MinKNOW_Run3_4",             # Změňte název pro každý nový skript/experiment
+  Test_Type = "Paired Wilcoxon",
+  P_Value = w_test$p.value
+)
+
+# Připsání řádku do master souboru (append = TRUE)
+write.table(results_row, file = master_csv, append = TRUE, sep = ",", 
+            col.names = !file.exists(master_csv), row.names = FALSE)
+```

@@ -1,17 +1,38 @@
 #!/bin/bash
+# =============================================================================
+# INSTRUKCE
+# =============================================================================
+# Na storage: 
+    # vytvoř složku RESULTS (pokud ještě není vytvořena)
+    # data: cesta k nim: RESULTS/statistics_results/statistics_output_runX/runX-barcodeXX
+    #     : lengths_run1_barcode01.txt (případně .hist - z Epi2me → upravit .txt na .hist)
+    #   pokud spouštím tuto analýzu na data, u kterých nebylo spuštěno dorado, můžeš upravit cestu a nahrát je jinam
+    # vytvoř složku FF_calculation a v ní:
+        # 1. skript: FF_ratio_from_length.sh
 
 # =============================================================================
-# 1. NASTAVENÍ SLOŽKY
+# 0. KONTROLA VSTUPNÍCH PROMĚNNÝCH
 # =============================================================================
-# Zadej cestu ke složce, kde máš všechny .hist soubory nasypané
-BASE_DIR="/storage/brno12-cerit/home/petraskkar/wisecondorX"
-WORK_DIR="$BASE_DIR/FF_ratio-Pavel_data"
-INPUT_DIR="$WORK_DIR/Histogramy-Pavel_data-jak-PCR"
+# Chceme, abys RUN_NUMBER zadala už při spouštění (např.: RUN_NUMBER=run1 bash skript.sh)
+if [ -z "${RUN_NUMBER:-}" ]; then
+    echo "Chyba: Proměnná RUN_NUMBER není nastavena." >&2
+    echo "Příkaz v terminálu: qsub -v RUN_NUMBER="run1" FF_ratio_from_length.sh" >&2
+    exit 1
+fi
 
-# Jak se má jmenovat výsledná tabulka (uloží se do stejné složky)
-OUTPUT_CSV="$WORK_DIR/fragment_ratios.csv"
+# =============================================================================
+# 1. NASTAVENÍ SLOŽEK
+# =============================================================================
+BASE_DIR="/storage/brno12-cerit/home/petraskkar/RESULTS"
 
-LOG_FILE="$WORK_DIR/log-fragment_ratios.txt"
+INPUT_DIR="$BASE_DIR/statistics_results/statistics_output_${RUN_NUMBER}"
+
+OUTPUT_DIR="$BASE_DIR/fragment_ratios_results"
+OUTPUT_CSV="$OUTPUT_DIR/fragment_ratios_${RUN_NUMBER}_$(date '+%Y-%m-%d').csv"
+
+LOG_FILE="$OUTPUT_DIR/fragment_ratios_log_${RUN_NUMBER}_$(date '+%Y-%m-%d').txt"
+
+mkdir -p "$OUTPUT_DIR"
 
 # =============================================================================
 # 2. VÝPOČET POMĚRŮ
