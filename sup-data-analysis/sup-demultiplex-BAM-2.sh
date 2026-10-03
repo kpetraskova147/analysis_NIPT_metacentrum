@@ -27,7 +27,7 @@ fi
 # 1. NASTAVENÍ UŽIVATELE
 # =============================================================================
 BASE_DIR="/storage/brno12-cerit/home/petraskkar"
-INPUT_BAM="$BASE_DIR/RESULTS/sup-basecall_results/BAM-sup_barcoded_${RUN_NUMBER}/sup-unaligned_barcoded.bam"
+INPUT_BAM="$BASE_DIR/RESULTS/SUP-basecall_results/BAM-SUP_barcoded_${RUN_NUMBER}/SUP-unaligned_barcoded.bam"
 FINAL_OUTPUT_DIR="$BASE_DIR/RESULTS/sup-basecall_results/sup-basecall_output_${RUN_NUMBER}"
 
 DORADO_DIR="$BASE_DIR/basecalling/dorado-2.0.0-linux-x64"
@@ -50,7 +50,7 @@ echo "Rozděluji data podle hotových štítků..."
     --no-classify \
     --emit-fastq \
     --output-dir "$SCRATCHDIR/demultiplexed" \
-    "$SCRATCHDIR/sup-unaligned_barcoded.bam"
+    "$SCRATCHDIR/SUP-unaligned_barcoded.bam"
 
 # =============================================================================
 # 5. FILTROVÁNÍ, PŘEJMENOVÁNÍ A KOMPRESE
