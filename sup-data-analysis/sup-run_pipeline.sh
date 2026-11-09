@@ -14,6 +14,7 @@
 # 0. KONTROLA VSTUPNÍCH PROMĚNNÝCH
 # =============================================================================
 set -euo pipefail
+trap "clean_scratch" TERM EXIT
 
 if [ -z "${RUN_NUMBER:-}" ] || [ -z "${DATUM:-}" ]; then
     echo "Chyba: Zadej RUN_NUMBER i DATUM!" >&2

@@ -41,6 +41,7 @@
 mkdir -p "pbs_outputs"
 
 set -euo pipefail
+trap "clean_scratch" TERM EXIT
 module add samtools
 
 if [ -z "${RUN_NUMBER:-}" ]; then

@@ -16,6 +16,7 @@
 # 0. KONTROLA PROMĚNNÝCH A NASTAVENÍ CEST
 # =============================================================================
 set -euo pipefail
+trap "clean_scratch" TERM EXIT
 
 if [ -z "${RUN_NUMBER:-}" ]; then
     echo "Chyba: RUN_NUMBER není nastaven. Spusťte pomocí: qsub -v RUN_NUMBER=run1 ..." >&2

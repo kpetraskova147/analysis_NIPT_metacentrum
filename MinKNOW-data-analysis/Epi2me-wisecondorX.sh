@@ -58,7 +58,8 @@
 # 0. KONTROLA VSTUPNÍCH PROMĚNNÝCH
 # =============================================================================
 mkdir -p "pbs_outputs"
-set -euo pipefail   # přísnější režim pro lepší detekci chyb, -e: skript se zastaví při jakékoliv chybě, -u: chyba při použití nedefinované proměnné, -o pipefail: chyba v jakékoliv části pipy způsobí selhání celé pipy
+set -euo pipefail
+trap "clean_scratch" TERM EXIT   # přísnější režim pro lepší detekci chyb, -e: skript se zastaví při jakékoliv chybě, -u: chyba při použití nedefinované proměnné, -o pipefail: chyba v jakékoliv části pipy způsobí selhání celé pipy
 
 if [ -z "${RUN_NUMBER:-}" ]; then
     echo "Chyba: RUN_NUMBER není nastaven." >&2

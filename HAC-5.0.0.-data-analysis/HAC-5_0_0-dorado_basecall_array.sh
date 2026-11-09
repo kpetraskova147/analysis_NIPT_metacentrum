@@ -40,6 +40,7 @@
 mkdir -p "pbs_outputs"
 
 set -euo pipefail
+trap "clean_scratch" TERM EXIT
 
 if [ -z "${RUN_NUMBER:-}" ]; then
     echo "Chyba: RUN_NUMBER není nastaven." >&2

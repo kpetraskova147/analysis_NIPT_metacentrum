@@ -17,6 +17,7 @@
 # =============================================================================
 mkdir -p /storage/brno12-cerit/home/petraskkar/basecalling/pbs_outputs/
 set -e
+trap "clean_scratch" TERM EXIT
 
 if [ -z "${RUN_NUMBER:-}" ]; then
     echo "Chyba: Zadej RUN_NUMBER!" >&2
